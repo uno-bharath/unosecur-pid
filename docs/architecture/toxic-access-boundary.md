@@ -1,26 +1,26 @@
-# Toxic Access Intelligence ownership boundary
+# UnoSecur PID ownership boundary
 
 ## Purpose
 
-Toxic Access Intelligence detects dangerous combinations of effective
+UnoSecur PID detects dangerous combinations of effective
 entitlements before those entitlements are used in an attack. It complements
 the existing UnoSecur platform and must not become a competing source of risk
 scores, identities, event detections, or incident state.
 
 ## Ownership
 
-| Capability | System of record |
-| --- | --- |
-| Canonical identities and integrations | Uno Entities |
-| Normalized provider activity | Uno Events |
-| Risk, policy, blast, bands, and investigation priority | Uno Scoring |
-| Findings, evidence, incidents, lifecycle, and deduplication | Uno Detect |
-| AWS privilege-escalation paths | Existing anomaly pathfinding detector |
-| AI-agent inventory and permissions | Agents service |
-| Entitlement conflicts and segregation of duties | Toxic Access Intelligence |
-| Cross-platform combination evaluation | Toxic Access Intelligence |
-| What-if conflict simulation | Toxic Access Intelligence |
-| Minimum-change remediation optimization | Toxic Access Intelligence |
+| Capability                                                  | System of record                      |
+| ----------------------------------------------------------- | ------------------------------------- |
+| Canonical identities and integrations                       | Uno Entities                          |
+| Normalized provider activity                                | Uno Events                            |
+| Risk, policy, blast, bands, and investigation priority      | Uno Scoring                           |
+| Findings, evidence, incidents, lifecycle, and deduplication | Uno Detect                            |
+| AWS privilege-escalation paths                              | Existing anomaly pathfinding detector |
+| AI-agent inventory and permissions                          | Agents service                        |
+| Entitlement conflicts and segregation of duties             | UnoSecur PID                          |
+| Cross-platform combination evaluation                       | UnoSecur PID                          |
+| What-if conflict simulation                                 | UnoSecur PID                          |
+| Minimum-change remediation optimization                     | UnoSecur PID                          |
 
 ## Ports and adapters
 

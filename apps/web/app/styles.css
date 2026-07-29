@@ -649,7 +649,9 @@ h2 {
   padding: 0;
   position: fixed;
   right: 26px;
-  transition: filter 180ms ease, transform 180ms ease;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
   width: 62px;
   z-index: 30;
 }
@@ -755,7 +757,9 @@ h2 {
   right: 72px;
   text-align: left;
   transform: translateX(7px);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
   white-space: nowrap;
 }
 

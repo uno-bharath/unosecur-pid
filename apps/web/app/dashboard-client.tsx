@@ -371,8 +371,8 @@ export default function DashboardClient() {
                       </span>
                     </div>
                     <div className="score conflict-count">
-                      {accessEvaluations.find(({ identityId }) => identityId === identity.id)?.summary
-                        .total ?? 0}
+                      {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                        ?.summary.total ?? 0}
                       <small>CONFLICTS</small>
                     </div>
                     <ChevronRight size={16} />
@@ -424,7 +424,9 @@ export default function DashboardClient() {
                     </div>
                   ))}
                   {filteredConflicts.length === 0 && (
-                    <div className="empty-conflicts">No entitlement conflicts match this filter.</div>
+                    <div className="empty-conflicts">
+                      No entitlement conflicts match this filter.
+                    </div>
                   )}
                 </div>
               </article>
@@ -442,9 +444,7 @@ export default function DashboardClient() {
                     <div className="node-wrap" key={`${node}-${index}`}>
                       <button
                         className={`node ${selectedNode === node ? 'selected' : ''} ${
-                          index === 0 || index === selectedAccessPath.length - 1
-                            ? 'danger'
-                            : ''
+                          index === 0 || index === selectedAccessPath.length - 1 ? 'danger' : ''
                         }`}
                         onClick={() => setSelectedNode(node)}
                       >

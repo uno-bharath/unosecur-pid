@@ -8,12 +8,12 @@ across enterprise applications, identity providers, cloud platforms, source
 control, Kubernetes, and secret stores; explains how an identity received the
 access; and previews the smallest safe remediation without changing live access.
 
-##  Identity
+## Identity
 
-| Item | Name |
-| --- | --- |
-| Product | **UnoSecur PID — Privilege Intelligence & Detection** |
-| Repository | **unosecur-pid** |
+| Item           | Name                                                                     |
+| -------------- | ------------------------------------------------------------------------ |
+| Product        | **UnoSecur PID — Privilege Intelligence & Detection**                    |
+| Repository     | **unosecur-pid**                                                         |
 | One-line pitch | Detect dangerous privilege combinations before they become attack paths. |
 
 The platform detects toxic access combinations rather than labelling people or machine identities as inherently toxic.
@@ -23,13 +23,15 @@ The platform detects toxic access combinations rather than labelling people or m
 Access is usually reviewed one permission, role, or platform at a time. That misses combinations where individually legitimate permissions produce a dangerous capability together.
 
 Examples include:
+
 - Creating a vendor and approving payments to that vendor.
 - Creating an identity and assigning it an administrative role.
 - Administering source code, delegating a production cloud role, and
   controlling a Kubernetes cluster.
 - Reading CI/CD secrets, assuming a cloud role, and reading production secrets.
 
-Toxic Access Intelligence evaluates the effective access collectively and answers:
+UnoSecur PID evaluates effective access collectively and answers:
+
 - Which combinations are dangerous?
 - Which systems and resources participate in the conflict?
 - Was each entitlement direct, inherited, or delegated?
@@ -40,23 +42,24 @@ Toxic Access Intelligence evaluates the effective access collectively and answer
 
 The project deliberately does not duplicate existing UnoSecur business logic.
 
-| Capability | System of record |
-| --- | --- |
-| Canonical identities, NHIs, groups, resources, and integrations | Uno Entities |
-| Normalized cloud, identity, SaaS, and DevOps events | Uno Events |
-| Risk, policy, blast-radius, bands, and investigation priority | Uno Scoring |
-| Findings, incidents, evidence, deduplication, and lifecycle | Uno Detect |
-| Existing AWS privilege-escalation pathfinding | UnoSecur anomaly detection |
-| AI-agent, tool, and permission inventory | Agents service |
-| Entitlement conflicts and segregation of duties | **This project** |
-| Cross-platform toxic access combinations | **This project** |
-| What-if conflict resolution | **This project** |
-| Minimum-change remediation optimization | **This project — roadmap** |
+| Capability                                                      | System of record           |
+| --------------------------------------------------------------- | -------------------------- |
+| Canonical identities, NHIs, groups, resources, and integrations | Uno Entities               |
+| Normalized cloud, identity, SaaS, and DevOps events             | Uno Events                 |
+| Risk, policy, blast-radius, bands, and investigation priority   | Uno Scoring                |
+| Findings, incidents, evidence, deduplication, and lifecycle     | Uno Detect                 |
+| Existing AWS privilege-escalation pathfinding                   | UnoSecur anomaly detection |
+| AI-agent, tool, and permission inventory                        | Agents service             |
+| Entitlement conflicts and segregation of duties                 | **This project**           |
+| Cross-platform toxic access combinations                        | **This project**           |
+| What-if conflict resolution                                     | **This project**           |
+| Minimum-change remediation optimization                         | **This project — roadmap** |
 
 The complete boundary is documented in
 [`docs/architecture/toxic-access-boundary.md`](docs/architecture/toxic-access-boundary.md).
 
-### Toxic Access engine
+### Privilege intelligence engine
+
 - Provider-neutral entitlement-combination model.
 - Deterministic conflict evaluation.
 - Human, service-account, and workload identity support.
@@ -67,12 +70,14 @@ The complete boundary is documented in
 - No locally invented production risk score.
 
 ### What-if simulation
+
 - Removes proposed permissions from an in-memory snapshot.
 - Re-evaluates conflicts without persisting access changes.
 - Reports resolved and remaining conflicts.
 - Reports how many unrelated grants remain.
 
 ### Investigation experience
+
 - Priority identity queue.
 - Severity-filtered entitlement conflicts.
 - Interactive effective-access path.
@@ -80,6 +85,7 @@ The complete boundary is documented in
 - Responsive layout and reduced-motion accessibility.
 
 ### Local LLM
+
 - Uses Ollama through its local HTTP API.
 - Receives deterministic Toxic Access evidence.
 - Explains business impact and remediation.
@@ -87,14 +93,15 @@ The complete boundary is documented in
 - Does not create scores, permissions, findings, or severity.
 
 ## Initial conflict catalogue
+
 Includes these unique examples:
 
-| Rule | Purpose |
-| --- | --- |
-| `TAI-SOD-FIN-001` | Vendor creation and payment approval |
-| `TAI-SOD-IDM-001` | Identity creation and administrator assignment |
-| `TAI-XPLAT-CICD-001` | Source control → AWS role delegation → Kubernetes control |
-| `TAI-XPLAT-SECRETS-001` | CI/CD secrets → AWS role delegation → Vault secrets |
+| Rule                    | Purpose                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `TAI-SOD-FIN-001`       | Vendor creation and payment approval                      |
+| `TAI-SOD-IDM-001`       | Identity creation and administrator assignment            |
+| `TAI-XPLAT-CICD-001`    | Source control → AWS role delegation → Kubernetes control |
+| `TAI-XPLAT-SECRETS-001` | CI/CD secrets → AWS role delegation → Vault secrets       |
 
 Rules are stored in
 [`apps/api/src/toxic-access/rules/toxic-combinations.json`](apps/api/src/toxic-access/rules/toxic-combinations.json).
@@ -112,7 +119,7 @@ Rules are stored in
                          IdentityAccessSnapshot
                                    │
                                    ▼
-                    Toxic Access Intelligence Engine
+                       UnoSecur PID Engine
                       ├─ SoD conflict evaluation
                       ├─ Cross-platform combinations
                       ├─ Effective-access evidence
@@ -124,18 +131,20 @@ Rules are stored in
 ```
 
 ## Technology
-| Area | Technology |
-| --- | --- |
-| Frontend | Next.js 15, React 19, TypeScript |
-| Backend | NestJS 11, TypeScript |
-| MVP persistence | PostgreSQL, Prisma |
-| Cache/readiness | Redis |
-| Future effective-access graph | Neo4j |
-| Local AI | Ollama |
-| Workspace | pnpm, Turborepo |
-| Validation | Jest, ESLint, TypeScript, Next.js build |
+
+| Area                          | Technology                              |
+| ----------------------------- | --------------------------------------- |
+| Frontend                      | Next.js 15, React 19, TypeScript        |
+| Backend                       | NestJS 11, TypeScript                   |
+| MVP persistence               | PostgreSQL, Prisma                      |
+| Cache/readiness               | Redis                                   |
+| Future effective-access graph | Neo4j                                   |
+| Local AI                      | Ollama                                  |
+| Workspace                     | pnpm, Turborepo                         |
+| Validation                    | Jest, ESLint, TypeScript, Next.js build |
 
 ## Prerequisites
+
 - Node.js 20 or newer
 - pnpm 10
 - PostgreSQL running locally on port `5432`
@@ -146,34 +155,62 @@ Reuses the existing local PostgreSQL installation. It does not start a second Po
 
 ### Technology requirements
 
-| Requirement | Minimum for the MVP | Recommended |
-| --- | --- | --- |
-| Operating system | macOS, Linux, or Windows with WSL2 | macOS or Linux |
-| Memory | 12 GB with a 4B local model | 16 GB or more |
-| Node.js | 20 | Current LTS |
-| pnpm | 10 | 10 |
-| PostgreSQL | 15 | 17 |
-| Docker | Current supported release | Docker Desktop with Compose |
-| Ollama | Local API enabled | `qwen3:4b` or `llama3:8b` |
-| Browser | Current Chrome, Edge, Firefox, or Safari | Chrome |
+| Requirement      | Minimum for the MVP                      | Recommended                 |
+| ---------------- | ---------------------------------------- | --------------------------- |
+| Operating system | macOS, Linux, or Windows with WSL2       | macOS or Linux              |
+| Memory           | 12 GB with a 4B local model              | 16 GB or more               |
+| Node.js          | 20                                       | Current LTS                 |
+| pnpm             | 10                                       | 10                          |
+| PostgreSQL       | 15                                       | 17                          |
+| Docker           | Current supported release                | Docker Desktop with Compose |
+| Ollama           | Local API enabled                        | `qwen3:4b` or `llama3:8b`   |
+| Browser          | Current Chrome, Edge, Firefox, or Safari | Chrome                      |
 
 The application uses these local ports:
 
-| Port | Service |
-| ---: | --- |
-| `3000` | Next.js dashboard |
-| `4000` | NestJS API |
-| `5432` | PostgreSQL |
-| `6379` | Redis |
-| `7474` | Neo4j browser |
-| `7687` | Neo4j Bolt protocol |
-| `11434` | Ollama |
+|    Port | Service             |
+| ------: | ------------------- |
+|  `3000` | Next.js dashboard   |
+|  `4000` | NestJS API          |
+|  `5432` | PostgreSQL          |
+|  `6379` | Redis               |
+|  `7474` | Neo4j browser       |
+|  `7687` | Neo4j Bolt protocol |
+| `11434` | Ollama              |
 
 Internet access is needed only to install dependencies and download a local model. Runtime identity evidence and Copilot prompts remain on the workstation.
 
 ## Setup
 
+### One-command workflow
+
+The lifecycle runner is the recommended way to operate the complete local
+environment:
+
+```bash
+./scripts/pid.sh all
+```
+
+This installs dependencies, starts Redis and Neo4j, verifies the existing
+PostgreSQL database, generates Prisma Client, applies migrations, seeds the
+demo, checks Ollama, and starts the API and dashboard.
+
+Other lifecycle commands:
+
+```bash
+./scripts/pid.sh setup
+./scripts/pid.sh start
+./scripts/pid.sh status
+./scripts/pid.sh validate
+./scripts/pid.sh stop
+```
+
+Equivalent pnpm aliases are available as `pnpm pid:setup`,
+`pnpm pid:start`, `pnpm pid:status`, `pnpm pid:validate`, and
+`pnpm pid:stop`.
+
 ### 1. Install dependencies
+
 ```bash
 pnpm install
 ```
@@ -185,6 +222,7 @@ cp .env.example .env
 ```
 
 Default development values:
+
 ```dotenv
 DATABASE_URL=postgresql://enterprise:enterprise_dev@localhost:5432/enterprise_ai
 REDIS_URL=redis://:redis_dev@localhost:6379
@@ -198,12 +236,15 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
 Change local credentials as required. Do not commit `.env`.
+
 ### 3. Start Redis and Neo4j
+
 ```bash
 pnpm infra:up
 ```
 
 Verify:
+
 ```bash
 docker compose -f infrastructure/docker/compose.yml ps
 ```
@@ -218,6 +259,7 @@ createdb --owner=enterprise enterprise_ai
 ```
 
 Generate Prisma Client and apply the committed migration:
+
 ```bash
 pnpm --filter @unosecur/api prisma:generate
 pnpm --filter @unosecur/api exec prisma migrate deploy
@@ -228,11 +270,13 @@ pnpm --filter @unosecur/api prisma:seed
 ```
 
 ### 5. Start Ollama
+
 ```bash
 ollama serve
 ```
 
 In another terminal:
+
 ```bash
 ollama list
 curl http://localhost:11434/api/tags
@@ -248,6 +292,7 @@ pnpm dev
 ```
 
 Open:
+
 - Dashboard: <http://localhost:3000>
 - API: <http://localhost:4000/api>
 - Swagger: <http://localhost:4000/docs>
@@ -272,6 +317,7 @@ GET /api/toxic-access/identities/{identityId}
 ```
 
 Returns:
+
 - Conflict rule and severity
 - Business impact
 - Recommended remediation
@@ -330,12 +376,7 @@ Copilot is grounded in the Toxic Access evaluation for the selected identity.
         {
           "permission": "finance:vendor:create",
           "resource": "erp:vendors",
-          "accessPath": [
-            "Maya Patel",
-            "finance-operator",
-            "finance:vendor:create",
-            "erp:vendors"
-          ]
+          "accessPath": ["Maya Patel", "finance-operator", "finance:vendor:create", "erp:vendors"]
         }
       ]
     }
@@ -365,12 +406,15 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
 Run only the API tests:
 
 ```bash
 pnpm --filter @unosecur/api test
 ```
+
 Current automated coverage includes:
+
 - Complete and incomplete entitlement combinations
 - Cross-platform constraints
 - Effective-access evidence
@@ -399,28 +443,59 @@ Current automated coverage includes:
 - Copilot responses are non-streaming.
 - Production UnoSecur adapters are not yet implemented.
 
-## Roadmap
-- Product ownership boundary
-- Provider-neutral Toxic Access contracts
-- Replaceable identity-access port
-- Unique rule catalogue
-- Deterministic conflict engine
-- Conflict-resolution simulation
-- Floating Copilot launcher
-- Dashboard backed by `/api/toxic-access`
-- Conflict-based metrics and identity detail
-- Effective-access visualization
-- Copilot grounded in conflicts instead of local scores
-- Uno Entities adapter
-- Uno Scoring context adapter
-- Uno Detect finding/evidence adapter
-- Stable canonical identity identifiers
-- Neo4j effective-access graph
-- Direct, inherited, nested-group, delegated, and cross-account paths
-- Resource-aware conflict evaluation
-- Minimum-change remediation optimizer
-- Risk-reduction versus business-access preservation ranking
-- Role, group, boundary, and JIT what-if operations
-- MCP Gateway guardrails
-- Approval-controlled Jira or ServiceNow remediation requests
-- Tamper-evident Copilot audit history
+## Delivery plan
+
+### Phase 1 — Foundation and unique domain boundary: complete
+
+- Provider-neutral privilege and entitlement contracts.
+- Replaceable identity-access source.
+- Deterministic combination catalogue and conflict engine.
+- PostgreSQL persistence with seeded demonstration identities.
+- Explicit ownership boundary with the existing UnoSecur repositories.
+
+### Phase 2 — Investigation experience: complete
+
+- Conflict-based executive dashboard and identity investigation.
+- Effective-access evidence visualization.
+- Non-destructive permission-removal simulation.
+- Evidence-grounded local Ollama Copilot with deterministic fallback.
+- Animated, accessible floating Copilot launcher.
+
+### Phase 3 — Repeatable developer lifecycle: current
+
+- One-command setup and startup.
+- Dependency readiness and environment diagnostics.
+- Database migration and seed orchestration.
+- Full validation command covering formatting, lint, types, tests, and builds.
+- Clear operator documentation and reproducible demo preparation.
+
+### Phase 4 — UnoSecur production adapters: next
+
+- Uno Entities adapter for canonical human and machine identities.
+- Uno Scoring context adapter without duplicating its risk calculation.
+- Uno Detect adapter for findings, evidence, deduplication, and lifecycle.
+- Stable canonical identifiers and incremental synchronization.
+- Contract and integration tests using representative UnoSecur payloads.
+
+### Phase 5 — Effective-access graph
+
+- Persist identities, groups, roles, policies, grants, and resources in Neo4j.
+- Resolve direct, inherited, nested-group, delegated, impersonated, and
+  cross-account access.
+- Evaluate conflicts using resource scope and graph-derived evidence.
+- Visualize multiple alternative paths and their shared control points.
+
+### Phase 6 — Remediation intelligence
+
+- Minimum-change remediation optimizer.
+- Rank risk reduction against preserved business access.
+- Simulate role, group, permission-boundary, and just-in-time changes.
+- Compare multiple proposed remediations side by side.
+
+### Phase 7 — Governed enterprise workflows
+
+- Authentication, tenant authorization, and data-boundary enforcement.
+- MCP gateway with tool allowlists and human approval.
+- Approval-controlled Jira or ServiceNow remediation requests.
+- Tamper-evident Copilot investigation and action history.
+- Operational monitoring, performance tests, and deployment packaging.

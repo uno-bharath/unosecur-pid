@@ -17,6 +17,12 @@
     "format:check": "prettier --check .",
     "infra:up": "docker compose -f infrastructure/docker/compose.yml up -d",
     "infra:down": "docker compose -f infrastructure/docker/compose.yml down",
+    "pid:setup": "./scripts/pid.sh setup",
+    "pid:start": "./scripts/pid.sh start",
+    "pid:status": "./scripts/pid.sh status",
+    "pid:validate": "./scripts/pid.sh validate",
+    "pid:stop": "./scripts/pid.sh stop",
+    "pid:all": "./scripts/pid.sh all",
     "prepare": "husky"
   },
   "devDependencies": {

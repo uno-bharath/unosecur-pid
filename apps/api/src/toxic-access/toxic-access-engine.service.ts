@@ -65,9 +65,7 @@ export class ToxicAccessEngineService {
 
   private matchesResource(grant: EffectiveGrant, resourcePattern?: string): boolean {
     if (!resourcePattern) return true;
-    const escaped = resourcePattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-      .replaceAll('*', '.*');
+    const escaped = resourcePattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*');
     return new RegExp(`^${escaped}$`, 'i').test(grant.resource);
   }
 }
