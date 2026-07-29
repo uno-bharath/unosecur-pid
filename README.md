@@ -327,8 +327,7 @@ ollama list
 curl http://localhost:11434/api/tags
 ```
 
-Set `OLLAMA_MODEL` to an installed chat model. The application never downloads
-a model automatically.
+Set `OLLAMA_MODEL` to an installed chat model. The application never downloads a model automatically.
 
 ### 6. Run the application
 
@@ -337,11 +336,9 @@ pnpm dev
 ```
 
 Open:
-
 - Dashboard: <http://localhost:3000>
 - API: <http://localhost:4000/api>
 - Swagger: <http://localhost:4000/docs>
-- Neo4j Browser: <http://localhost:7474>
 
 ## API
 
@@ -430,7 +427,6 @@ Copilot is grounded in the Toxic Access evaluation for the selected identity.
 ```
 
 ## Walkthrough
-
 1. Open the command center.
 2. Select **Maya Patel** to show a finance segregation-of-duties conflict.
 3. Review the matched permissions and effective-access evidence.
@@ -442,7 +438,6 @@ Copilot is grounded in the Toxic Access evaluation for the selected identity.
    findings while this capability adds preventative combination analysis.
 
 ## Validation
-
 Run the complete workspace validation:
 
 ```bash
@@ -459,7 +454,6 @@ pnpm --filter @unosecur/api test
 ```
 
 Current automated coverage includes:
-
 - Complete and incomplete entitlement combinations
 - Cross-platform constraints
 - Effective-access evidence
@@ -469,7 +463,6 @@ Current automated coverage includes:
 - Existing demo compatibility behavior
 
 ## Security principles
-
 - Deterministic engines establish findings; the LLM only explains evidence.
 - Simulation never writes permission changes.
 - Secrets and service URLs are configured through environment variables.
@@ -479,7 +472,6 @@ Current automated coverage includes:
 - Future remediation actions require MCP guardrails, audit records, and human approval.
 
 ## Known limitations
-
 - Identity data is currently seeded through the demo Prisma adapter.
 - Effective-access paths are reconstructed from demo grant sources.
 - Neo4j readiness exists, but graph persistence is not yet the source of access paths.
@@ -488,68 +480,42 @@ Current automated coverage includes:
 - Copilot responses are non-streaming.
 - Production UnoSecur adapters are not yet implemented.
 
-## Delivery plan
+## RoadMap
 
-### Phase 1 — Foundation and unique domain boundary: complete
-
+### Foundation and unique domain boundary
 - Provider-neutral privilege and entitlement contracts.
 - Replaceable identity-access source.
 - Deterministic combination catalogue and conflict engine.
-- PostgreSQL persistence with seeded demonstration identities.
 - Explicit ownership boundary with the existing UnoSecur repositories.
 
-### Phase 2 — Investigation experience: complete
-
+### Investigation experience
 - Conflict-based executive dashboard and identity investigation.
 - Effective-access evidence visualization.
 - Non-destructive permission-removal simulation.
 - Evidence-grounded local Ollama Copilot with deterministic fallback.
 - Animated, accessible floating Copilot launcher.
 
-### Phase 3 — Repeatable developer lifecycle: current
-
-- One-command setup and startup.
-- Dependency readiness and environment diagnostics.
-- Database migration and seed orchestration.
-- Full validation command covering formatting, lint, types, tests, and builds.
-- Clear operator documentation and reproducible demo preparation.
-
-### Phase 4 — UnoSecur production adapters: next
-
-- Uno Entities adapter for canonical human and machine identities.
-- Uno Scoring context adapter without duplicating its risk calculation.
-- Uno Detect adapter for findings, evidence, deduplication, and lifecycle.
-- Stable canonical identifiers and incremental synchronization.
-- Contract and integration tests using representative UnoSecur payloads.
-
-### Phase 5 — Effective-access graph
-
+### Effective-access graph
 - Persist identities, groups, roles, policies, grants, and resources in Neo4j.
 - Resolve direct, inherited, nested-group, delegated, impersonated, and
   cross-account access.
 - Evaluate conflicts using resource scope and graph-derived evidence.
 - Visualize multiple alternative paths and their shared control points.
 
-### Phase 6 — Remediation intelligence
-
+### Remediation intelligence
 - Minimum-change remediation optimizer.
 - Rank risk reduction against preserved business access.
 - Simulate role, group, permission-boundary, and just-in-time changes.
 - Compare multiple proposed remediations side by side.
 
-### Phase 7 — Governed enterprise workflows
-
+### Governed enterprise workflows
 - Authentication, tenant authorization, and data-boundary enforcement.
 - MCP gateway with tool allowlists and human approval.
 - Approval-controlled Jira or ServiceNow remediation requests.
 - Tamper-evident Copilot investigation and action history.
 - Operational monitoring, performance tests, and deployment packaging.
 
-## Further enhancement backlog
-
-These enhancements extend PID without duplicating the systems of record already
-owned by other UnoSecur repositories:
-
+## Further enhancement
 | Enhancement                    | Value added by PID                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | Privilege drift timeline       | Shows exactly when an identity became dangerous and which grant completed the conflict.    |
@@ -564,12 +530,3 @@ owned by other UnoSecur repositories:
 | Remediation portfolio          | Finds one controlled change that resolves the greatest number of conflicts safely.         |
 | Continuous evaluation          | Re-evaluates only identities affected by new grants rather than rescanning everything.     |
 | Executive narratives           | Converts deterministic conflict evidence into concise business-impact summaries.           |
-
-### Recommended implementation order
-
-1. Build the Uno Entities adapter and freeze the integration contract.
-2. Persist effective-access relationships and provenance in Neo4j.
-3. Replace the remaining compatibility API usage in the dashboard.
-4. Implement the minimum-change remediation optimizer.
-5. Add authentication, authorization, audit history, and approval guardrails.
-6. Add continuous evaluation and CI/CD change-impact checks.
