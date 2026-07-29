@@ -519,9 +519,29 @@ export default function DashboardClient() {
         onClick={() => setCopilotOpen((open) => !open)}
       >
         <span className="copilot-pulse" aria-hidden="true" />
-        <span className="copilot-orb" aria-hidden="true">
-          {copilotOpen ? <X size={23} /> : <Bot size={25} />}
-        </span>
+        {copilotOpen ? (
+          <span className="copilot-orb" aria-hidden="true">
+            <X size={23} />
+          </span>
+        ) : (
+          <span className="copilot-robot" aria-hidden="true">
+            <span className="robot-head">
+              <span className="robot-ear robot-ear-left" />
+              <span className="robot-ear robot-ear-right" />
+              <span className="robot-screen">
+                <span className="robot-prompt">&gt;</span>
+                <span className="robot-cursor">_</span>
+              </span>
+            </span>
+            <span className="robot-body">
+              <span className="robot-arm robot-arm-left" />
+              <span className="robot-arm robot-arm-right" />
+              <span className="robot-chest">&gt;_</span>
+              <span className="robot-leg robot-leg-left" />
+              <span className="robot-leg robot-leg-right" />
+            </span>
+          </span>
+        )}
         {!copilotOpen && (
           <>
             <span className="copilot-spark" aria-hidden="true">

@@ -499,3 +499,32 @@ Current automated coverage includes:
 - Approval-controlled Jira or ServiceNow remediation requests.
 - Tamper-evident Copilot investigation and action history.
 - Operational monitoring, performance tests, and deployment packaging.
+
+## Further enhancement backlog
+
+These enhancements extend PID without duplicating the systems of record already
+owned by other UnoSecur repositories:
+
+| Enhancement                    | Value added by PID                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| Privilege drift timeline       | Shows exactly when an identity became dangerous and which grant completed the conflict.    |
+| Conflict clusters              | Groups identities sharing the same dangerous entitlement pattern and remediation point.    |
+| Identity digital twin          | Tests future role, group, and policy changes against a read-only access model.             |
+| Break-glass awareness          | Distinguishes approved emergency privilege from unexplained standing access.               |
+| Time-bound access reasoning    | Evaluates temporary, scheduled, expired, and just-in-time grants.                          |
+| Compensating controls          | Adjusts remediation guidance when MFA, approval, session recording, or PAM controls exist. |
+| Business-process rule packs    | Adds finance, HR, engineering, data, and infrastructure separation-of-duties packs.        |
+| Rule provenance and versioning | Makes every decision reproducible against the exact catalogue and source evidence.         |
+| Change-impact API              | Allows CI/CD and IaC pipelines to test whether a proposed change creates a new conflict.   |
+| Remediation portfolio          | Finds one controlled change that resolves the greatest number of conflicts safely.         |
+| Continuous evaluation          | Re-evaluates only identities affected by new grants rather than rescanning everything.     |
+| Executive narratives           | Converts deterministic conflict evidence into concise business-impact summaries.           |
+
+### Recommended implementation order
+
+1. Build the Uno Entities adapter and freeze the integration contract.
+2. Persist effective-access relationships and provenance in Neo4j.
+3. Replace the remaining compatibility API usage in the dashboard.
+4. Implement the minimum-change remediation optimizer.
+5. Add authentication, authorization, audit history, and approval guardrails.
+6. Add continuous evaluation and CI/CD change-impact checks.
