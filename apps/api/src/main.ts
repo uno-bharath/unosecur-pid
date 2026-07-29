@@ -13,8 +13,10 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const swagger = new DocumentBuilder()
-    .setTitle('UnoSecur Identity Copilot API')
-    .setDescription('Explainable toxic-identity and attack-path API')
+    .setTitle('UnoSecur Toxic Access Intelligence API')
+    .setDescription(
+      'Entitlement-conflict detection, effective-access evidence, and non-destructive remediation simulation',
+    )
     .setVersion('0.1.0')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger));

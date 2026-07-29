@@ -8,7 +8,6 @@ import {
   Cloud,
   GitBranch,
   LoaderCircle,
-  MessageCircle,
   RefreshCw,
   Search,
   Send,
@@ -58,13 +57,46 @@ interface RiskSummary {
   topIdentities: ToxicIdentity[];
 }
 
-interface RiskSimulation {
-  currentScore: number;
-  projectedScore: number;
-  scoreReduction: number;
+interface MatchedEntitlement {
+  requirementId: string;
+  permission: string;
+  platform: string;
+  resource: string;
+  accessPath: string[];
+}
+
+interface ToxicAccessConflict {
+  ruleId: string;
+  title: string;
+  category: string;
+  severity: Severity;
+  businessImpact: string;
+  remediation: string;
+  platforms: string[];
+  evidence: MatchedEntitlement[];
+  mappings: { mitre: string[]; nist: string[] };
+}
+
+interface ToxicAccessEvaluation {
+  identityId: string;
+  displayName: string;
+  source: string;
+  conflicts: ToxicAccessConflict[];
+  summary: {
+    total: number;
+    critical: number;
+    high: number;
+    affectedPlatforms: string[];
+  };
+}
+
+interface ToxicAccessSimulation {
+  currentConflictCount: number;
+  projectedConflictCount: number;
   removedPermissions: string[];
-  resolvedFindings: string[];
-  remainingFindings: string[];
+  resolvedConflicts: string[];
+  remainingConflicts: string[];
+  preservedGrantCount: number;
 }
 
 interface CopilotAnswer {
@@ -78,6 +110,7 @@ const severities: Array<'all' | Severity> = ['all', 'critical', 'high', 'medium'
 
 export default function DashboardClient() {
   const [summary, setSummary] = useState<RiskSummary | null>(null);
+  const [accessEvaluations, setAccessEvaluations] = useState<ToxicAccessEvaluation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [severity, setSeverity] = useState<(typeof severities)[number]>('all');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -87,18 +120,26 @@ export default function DashboardClient() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<CopilotAnswer | null>(null);
   const [asking, setAsking] = useState(false);
-  const [simulation, setSimulation] = useState<RiskSimulation | null>(null);
+  const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
   const [simulating, setSimulating] = useState(false);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${apiUrl}/risk/summary`);
-      if (!response.ok) throw new Error(`API returned ${response.status}`);
-      const next = (await response.json()) as RiskSummary;
+      const [summaryResponse, accessResponse] = await Promise.all([
+        fetch(`${apiUrl}/risk/summary`),
+        fetch(`${apiUrl}/toxic-access/identities`),
+      ]);
+      if (!summaryResponse.ok) throw new Error(`Identity API returned ${summaryResponse.status}`);
+      if (!accessResponse.ok) throw new Error(`Toxic Access API returned ${accessResponse.status}`);
+      const next = (await summaryResponse.json()) as RiskSummary;
+      const evaluations = (await accessResponse.json()) as ToxicAccessEvaluation[];
       setSummary(next);
-      setSelectedId((current) => current ?? next.topIdentities[0]?.id ?? null);
+      setAccessEvaluations(evaluations);
+      setSelectedId(
+        (current) => current ?? evaluations[0]?.identityId ?? next.topIdentities[0]?.id ?? null,
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Risk API is unavailable');
     } finally {
@@ -117,27 +158,39 @@ export default function DashboardClient() {
       null,
     [selectedId, summary],
   );
-  const filteredFactors = useMemo(
+  const selectedAccess = useMemo(
+    () => accessEvaluations.find(({ identityId }) => identityId === selectedId) ?? null,
+    [accessEvaluations, selectedId],
+  );
+  const filteredConflicts = useMemo(
     () =>
-      selectedIdentity?.factors.filter(
-        (factor) => severity === 'all' || factor.severity === severity,
+      selectedAccess?.conflicts.filter(
+        (conflict) => severity === 'all' || conflict.severity === severity,
       ) ?? [],
-    [selectedIdentity, severity],
+    [selectedAccess, severity],
   );
   const removablePermissions = useMemo(
     () =>
       [
         ...new Set(
-          selectedIdentity?.factors.flatMap(({ evidence }) => evidence.matchedPermissions ?? []) ??
-            [],
+          selectedAccess?.conflicts.flatMap(({ evidence }) =>
+            evidence.map(({ permission }) => permission),
+          ) ?? [],
         ),
       ].slice(0, 6),
-    [selectedIdentity],
+    [selectedAccess],
+  );
+  const selectedAccessPath = useMemo(
+    () =>
+      selectedAccess?.conflicts[0]?.evidence.flatMap(({ accessPath }) => accessPath) ??
+      selectedIdentity?.attackPath ??
+      [],
+    [selectedAccess, selectedIdentity],
   );
 
   const selectIdentity = (identity: ToxicIdentity) => {
     setSelectedId(identity.id);
-    setSelectedNode(identity.attackPath[0] ?? null);
+    setSelectedNode(null);
     setSimulation(null);
     setAnswer(null);
   };
@@ -146,13 +199,16 @@ export default function DashboardClient() {
     if (!selectedIdentity) return;
     setSimulating(true);
     try {
-      const response = await fetch(`${apiUrl}/risk/identities/${selectedIdentity.id}/simulate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ removePermissions: [permission] }),
-      });
+      const response = await fetch(
+        `${apiUrl}/toxic-access/identities/${selectedIdentity.id}/simulate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ removePermissions: [permission] }),
+        },
+      );
       if (!response.ok) throw new Error(`Simulation returned ${response.status}`);
-      setSimulation((await response.json()) as RiskSimulation);
+      setSimulation((await response.json()) as ToxicAccessSimulation);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Simulation failed');
     } finally {
@@ -186,12 +242,23 @@ export default function DashboardClient() {
     }
   };
 
+  const totalConflicts = accessEvaluations.reduce(
+    (total, evaluation) => total + evaluation.summary.total,
+    0,
+  );
+  const criticalConflicts = accessEvaluations.reduce(
+    (total, evaluation) => total + evaluation.summary.critical,
+    0,
+  );
+  const affectedPlatforms = new Set(
+    accessEvaluations.flatMap(({ summary: accessSummary }) => accessSummary.affectedPlatforms),
+  ).size;
   const metrics = summary
     ? [
-        ['Enterprise risk', String(summary.enterpriseRiskScore), '/100', ShieldAlert, 'critical'],
-        ['Critical identities', String(summary.criticalIdentities), '', Users, 'warning'],
-        ['Attack paths', String(summary.attackPaths), '', GitBranch, 'accent'],
-        ['Identities scanned', String(summary.identitiesScanned), '', Activity, 'neutral'],
+        ['Toxic conflicts', String(totalConflicts), '', ShieldAlert, 'critical'],
+        ['Critical conflicts', String(criticalConflicts), '', Users, 'warning'],
+        ['Affected platforms', String(affectedPlatforms), '', GitBranch, 'accent'],
+        ['Identities evaluated', String(summary.identitiesScanned), '', Activity, 'neutral'],
       ]
     : [];
 
@@ -201,7 +268,7 @@ export default function DashboardClient() {
         <div className="brand">
           <span>U</span>
           <div>
-            unosecur<small>IDENTITY COPILOT</small>
+            unosecur<small>TOXIC ACCESS INTELLIGENCE</small>
           </div>
         </div>
         <nav>
@@ -212,7 +279,7 @@ export default function DashboardClient() {
             <Users size={18} /> Identities
           </a>
           <a href="#findings">
-            <ShieldAlert size={18} /> Findings <b>{summary?.findings ?? '–'}</b>
+            <ShieldAlert size={18} /> Conflicts <b>{totalConflicts || '–'}</b>
           </a>
           <a href="#attack-path">
             <GitBranch size={18} /> Attack paths
@@ -229,9 +296,9 @@ export default function DashboardClient() {
       <section className="content" id="overview">
         <header>
           <div>
-            <p>SECURITY POSTURE</p>
-            <h1>Identity Defense Command Center</h1>
-            <span>Evidence-led risk decisions across every connected control plane.</span>
+            <p>ACCESS INTELLIGENCE</p>
+            <h1>Toxic Access Command Center</h1>
+            <span>Find dangerous entitlement combinations before they are exploited.</span>
           </div>
           <div className="search">
             <Search size={18} />
@@ -268,7 +335,9 @@ export default function DashboardClient() {
                       <small>{String(suffix)}</small>
                     </strong>
                     <p>
-                      {label === 'Enterprise risk' ? 'Explainable weighted score' : 'Live API data'}
+                      {label === 'Toxic conflicts'
+                        ? 'Deterministic entitlement evidence'
+                        : 'Live Toxic Access API'}
                     </p>
                   </article>
                 );
@@ -280,7 +349,7 @@ export default function DashboardClient() {
                 <div className="panel-title">
                   <div>
                     <p>PRIORITY QUEUE</p>
-                    <h2>Toxic identities</h2>
+                    <h2>Priority identities</h2>
                   </div>
                   <span>{summary.platformCoverage.length} platforms</span>
                 </div>
@@ -296,11 +365,15 @@ export default function DashboardClient() {
                       <small>
                         {identity.department} · {identity.type}
                       </small>
-                      <span>{identity.factors[0]?.title}</span>
+                      <span>
+                        {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                          ?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                      </span>
                     </div>
-                    <div className="score">
-                      {identity.riskScore}
-                      <small>RISK</small>
+                    <div className="score conflict-count">
+                      {accessEvaluations.find(({ identityId }) => identityId === identity.id)?.summary
+                        .total ?? 0}
+                      <small>CONFLICTS</small>
                     </div>
                     <ChevronRight size={16} />
                   </button>
@@ -320,8 +393,8 @@ export default function DashboardClient() {
                     </span>
                   </div>
                   <div className="score hero-score">
-                    {selectedIdentity.riskScore}
-                    <small>RISK</small>
+                    {selectedAccess?.summary.total ?? 0}
+                    <small>CONFLICTS</small>
                   </div>
                 </div>
 
@@ -338,18 +411,21 @@ export default function DashboardClient() {
                 </div>
 
                 <div className="finding-list">
-                  {filteredFactors.map((factor) => (
-                    <div className="finding" key={factor.ruleId}>
-                      <span className={`severity ${factor.severity}`}>{factor.severity}</span>
+                  {filteredConflicts.map((conflict) => (
+                    <div className="finding" key={conflict.ruleId}>
+                      <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
                       <div>
-                        <strong>{factor.title}</strong>
-                        <p>{factor.justification}</p>
+                        <strong>{conflict.title}</strong>
+                        <p>{conflict.businessImpact}</p>
                         <small>
-                          {factor.platform} · {factor.mitre}
+                          {conflict.platforms.join(' → ')} · {conflict.mappings.nist.join(', ')}
                         </small>
                       </div>
                     </div>
                   ))}
+                  {filteredConflicts.length === 0 && (
+                    <div className="empty-conflicts">No entitlement conflicts match this filter.</div>
+                  )}
                 </div>
               </article>
 
@@ -359,14 +435,14 @@ export default function DashboardClient() {
                     <p>INTERACTIVE ATTACK PATH</p>
                     <h2>Identity → high-value resource</h2>
                   </div>
-                  <span>{selectedIdentity.confidence}% confidence</span>
+                  <span>{selectedAccess?.source ?? 'demo compatibility'}</span>
                 </div>
                 <div className="nodes">
-                  {selectedIdentity.attackPath.map((node, index) => (
+                  {selectedAccessPath.map((node, index) => (
                     <div className="node-wrap" key={`${node}-${index}`}>
                       <button
                         className={`node ${selectedNode === node ? 'selected' : ''} ${
-                          index === 0 || index === selectedIdentity.attackPath.length - 1
+                          index === 0 || index === selectedAccessPath.length - 1
                             ? 'danger'
                             : ''
                         }`}
@@ -374,16 +450,15 @@ export default function DashboardClient() {
                       >
                         {node}
                       </button>
-                      {index < selectedIdentity.attackPath.length - 1 && <ChevronRight size={16} />}
+                      {index < selectedAccessPath.length - 1 && <ChevronRight size={16} />}
                     </div>
                   ))}
                 </div>
                 <div className="path-insight">
                   <Zap size={17} />
                   <span>
-                    {selectedNode ?? selectedIdentity.attackPath[0]} participates in a path exposing{' '}
-                    {selectedIdentity.blastRadius.secrets} secrets and{' '}
-                    {selectedIdentity.blastRadius.databases} databases.
+                    {selectedNode ?? selectedAccessPath[0]} is part of an effective-access path
+                    contributing to {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
                   </span>
                 </div>
               </article>
@@ -392,7 +467,7 @@ export default function DashboardClient() {
                 <div className="panel-title">
                   <div>
                     <p>WHAT-IF REMEDIATION</p>
-                    <h2>Preview risk reduction</h2>
+                    <h2>Preview conflict resolution</h2>
                   </div>
                   <Sparkles size={19} />
                 </div>
@@ -413,20 +488,20 @@ export default function DashboardClient() {
                 {simulation && (
                   <div className="simulation-result">
                     <div>
-                      <span>Projected risk</span>
-                      <strong>{simulation.projectedScore}</strong>
+                      <span>Current conflicts</span>
+                      <strong>{simulation.currentConflictCount}</strong>
                     </div>
                     <div>
-                      <span>Reduction</span>
-                      <strong className="positive">−{simulation.scoreReduction}</strong>
+                      <span>Projected conflicts</span>
+                      <strong className="positive">{simulation.projectedConflictCount}</strong>
                     </div>
                     <div>
-                      <span>Resolved findings</span>
-                      <strong>{simulation.resolvedFindings.length}</strong>
+                      <span>Access preserved</span>
+                      <strong>{simulation.preservedGrantCount}</strong>
                     </div>
                     <p>
                       <Check size={15} />{' '}
-                      {simulation.resolvedFindings.join(', ') || 'No finding fully resolved'}
+                      {simulation.resolvedConflicts.join(', ') || 'No conflict fully resolved'}
                     </p>
                   </div>
                 )}
@@ -438,14 +513,35 @@ export default function DashboardClient() {
 
       <button
         aria-label="Ask UnoSecur Copilot"
+        aria-controls="unosecur-copilot"
+        aria-expanded={copilotOpen}
         className={`copilot-launcher ${copilotOpen ? 'open' : ''}`}
         onClick={() => setCopilotOpen((open) => !open)}
       >
-        {copilotOpen ? <X size={22} /> : <MessageCircle size={23} />}
-        {!copilotOpen && <span>Ask Copilot</span>}
+        <span className="copilot-pulse" aria-hidden="true" />
+        <span className="copilot-orb" aria-hidden="true">
+          {copilotOpen ? <X size={23} /> : <Bot size={25} />}
+        </span>
+        {!copilotOpen && (
+          <>
+            <span className="copilot-spark" aria-hidden="true">
+              <Sparkles size={12} />
+            </span>
+            <span className="copilot-status" aria-hidden="true" />
+            <span className="copilot-tooltip" role="tooltip">
+              Ask UnoSecur Copilot
+              <small>Investigate this identity</small>
+            </span>
+          </>
+        )}
       </button>
 
-      <section className={`copilot-drawer ${copilotOpen ? 'open' : ''}`} aria-hidden={!copilotOpen}>
+      <section
+        aria-hidden={!copilotOpen}
+        aria-label="UnoSecur Copilot"
+        className={`copilot-drawer ${copilotOpen ? 'open' : ''}`}
+        id="unosecur-copilot"
+      >
         <div className="copilot-header">
           <div className="copilot-mark">
             <Bot size={20} />

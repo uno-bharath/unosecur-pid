@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RiskService } from '../risk/risk.service';
-import { ToxicIdentity } from '../risk/risk.types';
+import { ToxicAccessEvaluation } from '../toxic-access/domain/toxic-access.types';
+import { ToxicAccessService } from '../toxic-access/toxic-access.service';
 
 interface OllamaResponse {
   message?: { content?: string };
@@ -13,9 +13,8 @@ export interface CopilotAnswer {
   model: string;
   source: 'ollama' | 'deterministic-fallback';
   evidence: {
-    riskScore: number;
-    confidence: number;
-    matchedRules: number;
+    conflicts: number;
+    criticalConflicts: number;
     platforms: string[];
   };
 }
@@ -24,21 +23,23 @@ export interface CopilotAnswer {
 export class CopilotService {
   constructor(
     private readonly config: ConfigService,
-    private readonly riskService: RiskService,
+    private readonly toxicAccessService: ToxicAccessService,
   ) {}
 
   async ask(question: string, identityId?: string): Promise<CopilotAnswer> {
     const identity = identityId
-      ? await this.riskService.getIdentity(identityId)
-      : (await this.riskService.getIdentities())[0];
+      ? await this.toxicAccessService.evaluateIdentity(identityId)
+      : (await this.toxicAccessService.listConflictedIdentities())[0];
+    if (!identity) {
+      throw new Error('No identity with a toxic access conflict is available');
+    }
 
     const model = this.config.get<string>('OLLAMA_MODEL', 'llama3:8b-instruct-q4_K_M');
     const baseUrl = this.config.get<string>('OLLAMA_BASE_URL', 'http://127.0.0.1:11434');
     const evidence = {
-      riskScore: identity.riskScore,
-      confidence: identity.confidence,
-      matchedRules: identity.factors.length,
-      platforms: identity.platforms,
+      conflicts: identity.summary.total,
+      criticalConflicts: identity.summary.critical,
+      platforms: identity.summary.affectedPlatforms,
     };
 
     try {
@@ -71,11 +72,11 @@ export class CopilotService {
       const answer = payload.message?.content?.trim();
       if (!answer) throw new Error('Ollama returned an empty response');
 
-      return { answer, identityId: identity.id, model, source: 'ollama', evidence };
+      return { answer, identityId: identity.identityId, model, source: 'ollama', evidence };
     } catch {
       return {
         answer: this.fallback(identity),
-        identityId: identity.id,
+        identityId: identity.identityId,
         model,
         source: 'deterministic-fallback',
         evidence,
@@ -83,8 +84,16 @@ export class CopilotService {
     }
   }
 
-  private fallback(identity: ToxicIdentity): string {
-    const topFinding = identity.factors[0];
-    return `${identity.name} has a risk score of ${identity.riskScore}/100 based on ${identity.factors.length} matched rules across ${identity.platforms.join(', ')}. The leading concern is ${topFinding?.title ?? 'excessive access'}. ${topFinding?.businessImpact ?? 'A compromise could affect high-value resources.'} Recommended first action: ${topFinding?.remediation ?? 'remove unnecessary permissions and require just-in-time elevation.'}`;
+  private fallback(identity: ToxicAccessEvaluation): string {
+    const topConflict = identity.conflicts[0];
+    return `${identity.displayName} has ${identity.summary.total} deterministic entitlement conflict${
+      identity.summary.total === 1 ? '' : 's'
+    } across ${identity.summary.affectedPlatforms.join(', ')}. The leading conflict is ${
+      topConflict?.title ?? 'excessive combined access'
+    }. ${
+      topConflict?.businessImpact ?? 'A compromise could cross multiple control planes.'
+    } Recommended first action: ${
+      topConflict?.remediation ?? 'remove one side of the conflict and require independent approval.'
+    }`;
   }
 }

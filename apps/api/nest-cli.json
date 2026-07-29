@@ -7,6 +7,10 @@
       {
         "include": "risk/rules/*.json",
         "watchAssets": true
+      },
+      {
+        "include": "toxic-access/rules/*.json",
+        "watchAssets": true
       }
     ]
   }

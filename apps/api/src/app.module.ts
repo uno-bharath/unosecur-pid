@@ -11,6 +11,7 @@ import { RiskRepository } from './risk/risk.repository';
 import { RiskController } from './risk/risk.controller';
 import { RiskService } from './risk/risk.service';
 import { RuleCatalogService } from './risk/rule-catalog.service';
+import { ToxicAccessModule } from './toxic-access/toxic-access.module';
 
 const environmentSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
@@ -31,6 +32,7 @@ const environmentSchema = z.object({
       isGlobal: true,
       validate: (config) => environmentSchema.parse(config),
     }),
+    ToxicAccessModule,
   ],
   controllers: [HealthController, RiskController, CopilotController],
   providers: [

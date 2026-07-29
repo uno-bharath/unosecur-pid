@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './styles.css';
 
 export const metadata: Metadata = {
-  title: 'UnoSecur Identity Copilot',
-  description: 'Explainable toxic identity intelligence',
+  title: 'UnoSecur Toxic Access Intelligence',
+  description: 'Cross-platform entitlement conflict intelligence and remediation simulation',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
