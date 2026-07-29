@@ -162,6 +162,44 @@ kbd {
   gap: 14px;
   margin: 30px 0 16px;
 }
+.state-banner {
+  align-items: center;
+  background: #0e1722;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #9baabd;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 13px 15px;
+  font-size: 12px;
+}
+.state-banner.loading svg {
+  animation: spin 1.2s linear infinite;
+}
+.state-banner.error {
+  border-color: #63313a;
+  color: #ff949d;
+}
+.state-banner.empty {
+  border-color: #655027;
+  color: #e9c170;
+}
+.coverage,
+.confidence {
+  color: var(--muted);
+  font-size: 10px;
+}
+.ask:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .metric,
 .panel {
   min-width: 0;

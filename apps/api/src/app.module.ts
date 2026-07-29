@@ -3,8 +3,12 @@ import { ConfigModule } from '@nestjs/config';
 import { z } from 'zod';
 import { HealthController } from './health/health.controller';
 import { HealthService } from './health/health.service';
+import { PrismaService } from './database/prisma.service';
+import { RiskEngineService } from './risk/risk-engine.service';
+import { RiskRepository } from './risk/risk.repository';
 import { RiskController } from './risk/risk.controller';
 import { RiskService } from './risk/risk.service';
+import { RuleCatalogService } from './risk/rule-catalog.service';
 
 const environmentSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
@@ -27,6 +31,13 @@ const environmentSchema = z.object({
     }),
   ],
   controllers: [HealthController, RiskController],
-  providers: [HealthService, RiskService],
+  providers: [
+    PrismaService,
+    HealthService,
+    RiskRepository,
+    RuleCatalogService,
+    RiskEngineService,
+    RiskService,
+  ],
 })
 export class AppModule {}

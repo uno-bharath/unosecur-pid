@@ -1,6 +1,7 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RiskService, RiskSummary, ToxicIdentity } from './risk.service';
+import { RiskService } from './risk.service';
+import { RiskSummary, ToxicIdentity } from './risk.types';
 
 @ApiTags('risk')
 @Controller('risk')
@@ -9,19 +10,25 @@ export class RiskController {
 
   @Get('summary')
   @ApiOperation({ summary: 'Get enterprise risk posture' })
-  getSummary(): RiskSummary {
+  getSummary(): Promise<RiskSummary> {
     return this.riskService.getSummary();
   }
 
   @Get('identities')
   @ApiOperation({ summary: 'List toxic identities ranked by risk' })
-  getIdentities(): ToxicIdentity[] {
+  getIdentities(): Promise<ToxicIdentity[]> {
     return this.riskService.getIdentities();
   }
 
   @Get('identities/:id')
   @ApiOperation({ summary: 'Get explainable identity risk evidence' })
-  getIdentity(@Param('id') id: string): ToxicIdentity {
+  getIdentity(@Param('id') id: string): Promise<ToxicIdentity> {
     return this.riskService.getIdentity(id);
+  }
+
+  @Post('scan')
+  @ApiOperation({ summary: 'Evaluate all stored identities against the rule catalogue' })
+  scan(): Promise<{ identitiesEvaluated: number; findingsCreated: number }> {
+    return this.riskService.scan();
   }
 }
