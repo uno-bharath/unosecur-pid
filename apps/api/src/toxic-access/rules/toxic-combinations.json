@@ -1,0 +1,112 @@
+[
+  {
+    "id": "TAI-SOD-FIN-001",
+    "title": "Vendor creation and payment approval conflict",
+    "description": "One identity can create a vendor and independently approve payments to it.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "A compromised or malicious identity can establish and pay a fraudulent vendor without independent review.",
+    "remediation": "Separate vendor administration from payment approval and require dual control for high-value transactions.",
+    "requirements": [
+      {
+        "id": "vendor-creation",
+        "anyPermissions": ["finance:vendor:create"]
+      },
+      {
+        "id": "payment-approval",
+        "anyPermissions": ["finance:payment:approve"]
+      }
+    ],
+    "identityTypes": ["HUMAN"],
+    "mappings": {
+      "mitre": ["T1078 Valid Accounts"],
+      "nist": ["AC-5 Separation of Duties", "AC-6 Least Privilege"]
+    }
+  },
+  {
+    "id": "TAI-SOD-IDM-001",
+    "title": "Identity provisioning and privileged-role assignment conflict",
+    "description": "One identity can create accounts and independently assign administrative roles.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "The identity can create an unreviewed privileged backdoor that bypasses the normal joiner and approval process.",
+    "remediation": "Separate account provisioning from privileged-role approval and enforce an independent approver.",
+    "requirements": [
+      {
+        "id": "account-provisioning",
+        "anyPermissions": ["identity:user:create"]
+      },
+      {
+        "id": "privileged-role-assignment",
+        "anyPermissions": ["identity:admin:assign"]
+      }
+    ],
+    "identityTypes": ["HUMAN"],
+    "mappings": {
+      "mitre": ["T1136 Create Account", "T1098 Account Manipulation"],
+      "nist": ["AC-5 Separation of Duties", "AC-2 Account Management"]
+    }
+  },
+  {
+    "id": "TAI-XPLAT-CICD-001",
+    "title": "Source-control to production control-plane pivot",
+    "description": "Repository administration, cloud role delegation, and Kubernetes administration converge on one identity.",
+    "category": "SUPPLY_CHAIN_PIVOT",
+    "severity": "critical",
+    "businessImpact": "A single identity can alter trusted source, obtain production cloud authority, and deploy across the Kubernetes control plane.",
+    "remediation": "Separate repository, cloud-role, and cluster administration; use workload federation and approval-protected production environments.",
+    "requirements": [
+      {
+        "id": "source-control-administration",
+        "platform": "GitHub",
+        "anyPermissions": ["github:repo:admin", "github:workflow:write"]
+      },
+      {
+        "id": "cloud-role-delegation",
+        "platform": "AWS",
+        "anyPermissions": ["iam:PassRole", "sts:AssumeRole"]
+      },
+      {
+        "id": "cluster-control",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:cluster-admin", "k8s:bind"]
+      }
+    ],
+    "minimumPlatforms": 3,
+    "mappings": {
+      "mitre": ["T1195.002 Compromise Software Supply Chain", "T1078.004 Cloud Accounts"],
+      "nist": ["AC-5 Separation of Duties", "CM-5 Access Restrictions for Change"]
+    }
+  },
+  {
+    "id": "TAI-XPLAT-SECRETS-001",
+    "title": "CI/CD secret-to-cloud privilege pivot",
+    "description": "CI/CD secret access, cloud role delegation, and production secret-store access are combined.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "critical",
+    "businessImpact": "Compromise of one identity can expose pipeline credentials, assume production authority, and retrieve downstream application secrets.",
+    "remediation": "Use workload identity federation, isolate secret approval, and scope cloud role delegation to approved deployment identities.",
+    "requirements": [
+      {
+        "id": "pipeline-secret-access",
+        "platform": "GitHub",
+        "anyPermissions": ["github:actions:secrets:read"]
+      },
+      {
+        "id": "cloud-role-delegation",
+        "platform": "AWS",
+        "anyPermissions": ["iam:PassRole", "sts:AssumeRole"]
+      },
+      {
+        "id": "production-secret-access",
+        "platform": "Vault",
+        "anyPermissions": ["vault:secrets:read"]
+      }
+    ],
+    "minimumPlatforms": 3,
+    "mappings": {
+      "mitre": ["T1552 Unsecured Credentials", "T1078.004 Cloud Accounts"],
+      "nist": ["AC-6 Least Privilege", "IA-5 Authenticator Management"]
+    }
+  }
+]

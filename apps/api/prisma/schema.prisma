@@ -27,7 +27,11 @@ model Identity {
   email        String?
   type         IdentityType
   provider     String
+  department   String
   riskScore    Int          @default(0)
+  confidence   Float        @default(0)
+  blastRadius  Json
+  attackPath   String[]
   lastActiveAt DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -62,6 +66,9 @@ model RiskRule {
   remediation    String
   mitreMappings  String[]
   nistMappings   String[]
+  matching       Json
+  riskWeight     Int
+  confidence     Float
   findings       Finding[]
 }
 
@@ -78,4 +85,5 @@ model Finding {
   rule       RiskRule @relation(fields: [ruleId], references: [id])
 
   @@index([identityId, severity])
+  @@unique([identityId, ruleId])
 }

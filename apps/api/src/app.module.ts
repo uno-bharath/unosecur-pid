@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { z } from 'zod';
+import { CopilotController } from './copilot/copilot.controller';
+import { CopilotService } from './copilot/copilot.service';
 import { HealthController } from './health/health.controller';
 import { HealthService } from './health/health.service';
+import { PrismaService } from './database/prisma.service';
+import { RiskEngineService } from './risk/risk-engine.service';
+import { RiskRepository } from './risk/risk.repository';
 import { RiskController } from './risk/risk.controller';
 import { RiskService } from './risk/risk.service';
+import { RuleCatalogService } from './risk/rule-catalog.service';
+import { ToxicAccessModule } from './toxic-access/toxic-access.module';
 
 const environmentSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
@@ -16,7 +23,7 @@ const environmentSchema = z.object({
   NEO4J_USER: z.string().default('neo4j'),
   NEO4J_PASSWORD: z.string().default('neo4j_dev_password'),
   OLLAMA_BASE_URL: z.string().url().default('http://127.0.0.1:11434'),
-  OLLAMA_MODEL: z.string().default('qwen3:4b'),
+  OLLAMA_MODEL: z.string().default('llama3:8b-instruct-q4_K_M'),
 });
 
 @Module({
@@ -25,8 +32,17 @@ const environmentSchema = z.object({
       isGlobal: true,
       validate: (config) => environmentSchema.parse(config),
     }),
+    ToxicAccessModule,
   ],
-  controllers: [HealthController, RiskController],
-  providers: [HealthService, RiskService],
+  controllers: [HealthController, RiskController, CopilotController],
+  providers: [
+    PrismaService,
+    HealthService,
+    RiskRepository,
+    RuleCatalogService,
+    RiskEngineService,
+    RiskService,
+    CopilotService,
+  ],
 })
 export class AppModule {}
