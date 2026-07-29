@@ -90,8 +90,10 @@ nav {
   margin-top: 44px;
 }
 
-nav a {
+nav button {
   align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 9px;
   color: #737d94;
   display: flex;
@@ -99,14 +101,15 @@ nav a {
   gap: 12px;
   padding: 11px 12px;
   text-decoration: none;
+  width: 100%;
 }
 
-nav a:hover {
+nav button:hover {
   background: #f5f7fc;
   color: var(--brand);
 }
 
-nav a.active {
+nav button.active {
   background: var(--brand-soft);
   color: var(--brand);
   font-weight: 600;
@@ -121,16 +124,30 @@ nav b {
   padding: 2px 7px;
 }
 
-.environment {
+.agent-roster {
   border: 1px solid var(--line);
   border-radius: 11px;
   color: #566078;
-  font-size: 12px;
   margin-top: auto;
-  padding: 12px;
+  padding: 12px 12px 10px;
 }
 
-.environment i,
+.agent-roster p {
+  color: var(--brand);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  margin: 0 0 8px;
+}
+
+.agent-roster span {
+  align-items: center;
+  display: flex;
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.agent-roster i,
 .copilot-header i {
   background: var(--lime);
   border-radius: 50%;
@@ -141,18 +158,75 @@ nav b {
   width: 7px;
 }
 
-.environment small {
-  color: var(--muted);
-  display: block;
-  margin: 5px 0 0 15px;
-}
-
 .content {
   margin: 0 auto;
   max-width: 1540px;
   min-width: 0;
   padding: 31px 38px 100px;
   width: 100%;
+}
+
+.coverage-panel {
+  display: none;
+  margin-top: 18px;
+}
+
+.coverage-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.coverage-item {
+  background: linear-gradient(145deg, #f8faff, #f3f6ff);
+  border: 1px solid #e2e8fb;
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  min-height: 125px;
+  padding: 18px;
+}
+
+.coverage-item svg {
+  color: var(--brand);
+}
+
+.coverage-item strong {
+  font: 700 15px 'Manrope';
+}
+
+.coverage-item span,
+.coverage-item small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.view-identities .metrics,
+.view-conflicts .metrics,
+.view-attack-paths .metrics,
+.view-coverage .metrics {
+  display: none;
+}
+
+.view-identities .path,
+.view-identities .simulator,
+.view-conflicts .identity-list,
+.view-conflicts .path,
+.view-conflicts .simulator,
+.view-attack-paths .identity-list,
+.view-attack-paths .identity-detail,
+.view-coverage .workspace-grid {
+  display: none;
+}
+
+.view-conflicts .identity-detail,
+.view-attack-paths .path,
+.view-attack-paths .simulator {
+  grid-column: 1 / -1;
+}
+
+.view-coverage .coverage-panel {
+  display: block;
 }
 
 header {
@@ -1229,6 +1303,9 @@ h2 {
   .workspace-grid {
     grid-template-columns: 1fr;
   }
+  .coverage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .path,
   .simulator {
     grid-column: 1;
@@ -1263,5 +1340,8 @@ h2 {
   .copilot-launcher {
     bottom: 18px;
     right: 18px;
+  }
+  .coverage-grid {
+    grid-template-columns: 1fr;
   }
 }

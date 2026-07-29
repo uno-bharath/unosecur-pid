@@ -108,5 +108,240 @@
       "mitre": ["T1552 Unsecured Credentials", "T1078.004 Cloud Accounts"],
       "nist": ["AC-6 Least Privilege", "IA-5 Authenticator Management"]
     }
+  },
+  {
+    "id": "PID-K8S-RBAC-001",
+    "title": "Kubernetes role binding and privilege escalation conflict",
+    "description": "An identity can bind roles and escalate the permissions contained in those roles.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "critical",
+    "businessImpact": "The identity can manufacture cluster-admin-equivalent access without receiving that role directly.",
+    "remediation": "Separate RBAC binding from escalation authority and restrict both verbs to an approval-controlled platform role.",
+    "requirements": [
+      {
+        "id": "role-binding",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:bind"]
+      },
+      {
+        "id": "role-escalation",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:escalate"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1098 Account Manipulation", "T1078 Valid Accounts"],
+      "nist": ["AC-6 Least Privilege", "AC-5 Separation of Duties"]
+    }
+  },
+  {
+    "id": "PID-K8S-SECRETS-001",
+    "title": "Workload creation and Kubernetes secret access",
+    "description": "An identity can read secrets and create a workload capable of using or exporting them.",
+    "category": "DATA_CONTROL_CONFLICT",
+    "severity": "high",
+    "businessImpact": "A compromised deployment identity can turn cluster secrets into reusable credentials or external data.",
+    "remediation": "Separate workload deployment from secret retrieval and use narrowly scoped workload identities.",
+    "requirements": [
+      {
+        "id": "secret-read",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:secrets:read"]
+      },
+      {
+        "id": "workload-create",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:pods:create", "k8s:deployments:create"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1552.007 Container API", "T1610 Deploy Container"],
+      "nist": ["AC-6 Least Privilege", "SC-28 Protection of Information at Rest"]
+    }
+  },
+  {
+    "id": "PID-AWS-AUDIT-001",
+    "title": "Audit shutdown and evidence deletion conflict",
+    "description": "An identity can stop audit collection and remove the resulting evidence.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "Malicious cloud activity can be performed while suppressing the evidence required for detection and investigation.",
+    "remediation": "Separate audit administration from log-storage deletion and enforce immutable cross-account retention.",
+    "requirements": [
+      {
+        "id": "audit-disable",
+        "platform": "AWS",
+        "anyPermissions": ["cloudtrail:StopLogging", "cloudtrail:DeleteTrail"]
+      },
+      {
+        "id": "evidence-delete",
+        "platform": "AWS",
+        "anyPermissions": ["s3:DeleteObject"],
+        "resourcePattern": "s3:audit-logs/*"
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1562.008 Disable Cloud Logs", "T1070 Indicator Removal"],
+      "nist": ["AU-9 Protection of Audit Information", "AC-5 Separation of Duties"]
+    }
+  },
+  {
+    "id": "PID-AWS-DATA-001",
+    "title": "Sensitive data read and external export conflict",
+    "description": "An identity can read sensitive objects and write them to an external exchange location.",
+    "category": "DATA_CONTROL_CONFLICT",
+    "severity": "critical",
+    "businessImpact": "Customer or regulated data can be copied outside its approved trust boundary using legitimate permissions.",
+    "remediation": "Separate sensitive-data access from external write destinations and enforce data perimeter controls.",
+    "requirements": [
+      {
+        "id": "sensitive-read",
+        "platform": "AWS",
+        "anyPermissions": ["s3:GetObject"],
+        "resourcePattern": "s3:customer-data/*"
+      },
+      {
+        "id": "external-write",
+        "platform": "AWS",
+        "anyPermissions": ["s3:PutObject"],
+        "resourcePattern": "s3:external-exchange/*"
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1530 Data from Cloud Storage", "T1567 Exfiltration Over Web Service"],
+      "nist": ["AC-6 Least Privilege", "SC-7 Boundary Protection"]
+    }
+  },
+  {
+    "id": "PID-VAULT-ADMIN-001",
+    "title": "Vault policy authoring and token issuance conflict",
+    "description": "An identity can author a privileged policy and issue a token that uses it.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "A durable privileged credential can be created without independent review or an existing administrator role.",
+    "remediation": "Require separate policy and token authorities with approval-bound short-lived token issuance.",
+    "requirements": [
+      {
+        "id": "policy-authoring",
+        "platform": "Vault",
+        "anyPermissions": ["vault:policy:write"]
+      },
+      {
+        "id": "token-issuance",
+        "platform": "Vault",
+        "anyPermissions": ["vault:token:create"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1098 Account Manipulation", "T1555 Credentials from Password Stores"],
+      "nist": ["AC-5 Separation of Duties", "IA-5 Authenticator Management"]
+    }
+  },
+  {
+    "id": "PID-ENTRA-APP-001",
+    "title": "Application creation, credential update, and tenant consent",
+    "description": "An identity can register an application, attach credentials, and grant tenant-wide consent.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "critical",
+    "businessImpact": "The identity can create a persistent application backdoor with broad delegated or application permissions.",
+    "remediation": "Split application registration, credential management, and admin consent across independently approved roles.",
+    "requirements": [
+      {
+        "id": "application-create",
+        "platform": "Entra ID",
+        "anyPermissions": ["entra:application:create"]
+      },
+      {
+        "id": "credential-update",
+        "platform": "Entra ID",
+        "anyPermissions": ["entra:application:credentials:write"]
+      },
+      {
+        "id": "tenant-consent",
+        "platform": "Entra ID",
+        "anyPermissions": ["entra:admin-consent:grant"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1136.003 Cloud Account", "T1098.003 Additional Cloud Roles"],
+      "nist": ["AC-2 Account Management", "AC-5 Separation of Duties"]
+    }
+  },
+  {
+    "id": "PID-AWS-CREDENTIAL-001",
+    "title": "Standing administrator and non-expiring credential",
+    "description": "A privileged identity combines broad cloud authority with a reusable static credential.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "high",
+    "businessImpact": "Credential theft provides immediate, durable administrative access without an interactive identity challenge.",
+    "remediation": "Replace static credentials with workload federation or short-lived sessions and remove standing administration.",
+    "requirements": [
+      {
+        "id": "broad-administration",
+        "platform": "AWS",
+        "anyPermissions": ["aws:AdministratorAccess"]
+      },
+      {
+        "id": "static-credential",
+        "anyPermissions": ["credential:static"]
+      }
+    ],
+    "identityTypes": ["SERVICE_ACCOUNT", "WORKLOAD"],
+    "mappings": {
+      "mitre": ["T1078.004 Cloud Accounts", "T1552.001 Credentials In Files"],
+      "nist": ["IA-5 Authenticator Management", "AC-6 Least Privilege"]
+    }
+  },
+  {
+    "id": "PID-XPLAT-BACKUP-001",
+    "title": "Production database extraction and external storage write",
+    "description": "A machine identity can extract a production database and write the result to external object storage.",
+    "category": "DATA_CONTROL_CONFLICT",
+    "severity": "critical",
+    "businessImpact": "A trusted backup workflow can become a high-volume data exfiltration channel.",
+    "remediation": "Constrain backup destinations, use storage perimeter policies, and separate extraction from replication administration.",
+    "requirements": [
+      {
+        "id": "database-export",
+        "platform": "PostgreSQL",
+        "anyPermissions": ["postgres:database:dump"]
+      },
+      {
+        "id": "external-storage-write",
+        "platform": "GCP",
+        "anyPermissions": ["gcs:objects:create"],
+        "resourcePattern": "gcs:external-transfer/*"
+      }
+    ],
+    "minimumPlatforms": 2,
+    "mappings": {
+      "mitre": ["T1005 Data from Local System", "T1567.002 Exfiltration to Cloud Storage"],
+      "nist": ["AC-4 Information Flow Enforcement", "SC-7 Boundary Protection"]
+    }
+  },
+  {
+    "id": "PID-GITHUB-GOV-001",
+    "title": "Repository administration and protection bypass",
+    "description": "An identity can modify repository content and disable the controls that protect production branches.",
+    "category": "SUPPLY_CHAIN_PIVOT",
+    "severity": "high",
+    "businessImpact": "Unreviewed code can be introduced into a trusted release path while required reviews and protections are removed.",
+    "remediation": "Protect branch-policy administration with independent approval and prevent owners from bypassing protected environments.",
+    "requirements": [
+      {
+        "id": "repository-administration",
+        "platform": "GitHub",
+        "anyPermissions": ["github:repo:admin"]
+      },
+      {
+        "id": "protection-bypass",
+        "platform": "GitHub",
+        "anyPermissions": ["github:branch-protection:write"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1195.002 Compromise Software Supply Chain"],
+      "nist": ["CM-5 Access Restrictions for Change", "AC-5 Separation of Duties"]
+    }
   }
 ]

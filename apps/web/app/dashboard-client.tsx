@@ -107,6 +107,38 @@ interface CopilotAnswer {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 const severities: Array<'all' | Severity> = ['all', 'critical', 'high', 'medium'];
+type WorkspaceView = 'overview' | 'identities' | 'conflicts' | 'attack-paths' | 'coverage';
+
+const workspaceCopy: Record<
+  WorkspaceView,
+  { eyebrow: string; title: string; description: string }
+> = {
+  overview: {
+    eyebrow: 'PRIVILEGE INTELLIGENCE',
+    title: 'Privilege Intelligence Command Center',
+    description: 'See enterprise entitlement conflicts, affected identities, and control planes.',
+  },
+  identities: {
+    eyebrow: 'IDENTITY EXPLORER',
+    title: 'Effective Access by Identity',
+    description: 'Investigate human and machine identities with evidence-backed privilege context.',
+  },
+  conflicts: {
+    eyebrow: 'CONFLICT CATALOGUE',
+    title: 'Dangerous Privilege Combinations',
+    description: 'Review deterministic conflicts and the permissions that complete each pattern.',
+  },
+  'attack-paths': {
+    eyebrow: 'ACCESS PATHS',
+    title: 'Privilege Path Investigation',
+    description: 'Trace inherited and cross-platform access to high-value enterprise resources.',
+  },
+  coverage: {
+    eyebrow: 'CONTROL-PLANE COVERAGE',
+    title: 'Connected Platform Intelligence',
+    description: 'Understand where PID currently evaluates privilege combinations and evidence.',
+  },
+};
 
 export default function DashboardClient() {
   const [summary, setSummary] = useState<RiskSummary | null>(null);
@@ -122,6 +154,13 @@ export default function DashboardClient() {
   const [asking, setAsking] = useState(false);
   const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
   const [simulating, setSimulating] = useState(false);
+  const [activeView, setActiveView] = useState<WorkspaceView>('overview');
+
+  const selectWorkspaceView = useCallback((view: WorkspaceView) => {
+    setActiveView(view);
+    const target = view === 'overview' ? '/' : `/?view=${view}`;
+    window.history.pushState({ view }, '', target);
+  }, []);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -150,6 +189,26 @@ export default function DashboardClient() {
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    const syncViewFromLocation = () => {
+      const candidate = new URLSearchParams(window.location.search).get('view');
+      if (
+        candidate === 'identities' ||
+        candidate === 'conflicts' ||
+        candidate === 'attack-paths' ||
+        candidate === 'coverage'
+      ) {
+        setActiveView(candidate);
+      } else {
+        setActiveView('overview');
+      }
+    };
+
+    syncViewFromLocation();
+    window.addEventListener('popstate', syncViewFromLocation);
+    return () => window.removeEventListener('popstate', syncViewFromLocation);
+  }, []);
 
   const selectedIdentity = useMemo(
     () =>
@@ -261,6 +320,23 @@ export default function DashboardClient() {
         ['Identities evaluated', String(summary.identitiesScanned), '', Activity, 'neutral'],
       ]
     : [];
+  const viewCopy = workspaceCopy[activeView];
+  const platformConflictCounts = Array.from(
+    new Set(accessEvaluations.flatMap((evaluation) => evaluation.summary.affectedPlatforms)),
+  )
+    .map((platform) => ({
+      platform,
+      conflicts: accessEvaluations.reduce(
+        (total, evaluation) =>
+          total +
+          evaluation.conflicts.filter((conflict) => conflict.platforms.includes(platform)).length,
+        0,
+      ),
+      identities: accessEvaluations.filter((evaluation) =>
+        evaluation.summary.affectedPlatforms.includes(platform),
+      ).length,
+    }))
+    .sort((left, right) => right.conflicts - left.conflicts);
 
   return (
     <main>
@@ -272,33 +348,57 @@ export default function DashboardClient() {
           </div>
         </div>
         <nav>
-          <a className="active" href="#overview">
+          <button
+            className={activeView === 'overview' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('overview')}
+          >
             <Activity size={18} /> Overview
-          </a>
-          <a href="#identities">
+          </button>
+          <button
+            className={activeView === 'identities' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('identities')}
+          >
             <Users size={18} /> Identities
-          </a>
-          <a href="#findings">
+          </button>
+          <button
+            className={activeView === 'conflicts' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('conflicts')}
+          >
             <ShieldAlert size={18} /> Conflicts <b>{totalConflicts || '–'}</b>
-          </a>
-          <a href="#attack-path">
+          </button>
+          <button
+            className={activeView === 'attack-paths' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('attack-paths')}
+          >
             <GitBranch size={18} /> Attack paths
-          </a>
-          <a href="#coverage">
+          </button>
+          <button
+            className={activeView === 'coverage' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('coverage')}
+          >
             <Cloud size={18} /> Cloud coverage
-          </a>
+          </button>
         </nav>
-        <div className="environment">
-          <i /> Local AI configured<small>Ollama · llama3:8b</small>
+        <div className="agent-roster">
+          <p>ACTIVE PID AGENTS</p>
+          <span>
+            <i /> Conflict Analyst
+          </span>
+          <span>
+            <i /> Path Investigator
+          </span>
+          <span>
+            <i /> Remediation Advisor
+          </span>
         </div>
       </aside>
 
-      <section className="content" id="overview">
+      <section className={`content view-${activeView}`} id={activeView}>
         <header>
           <div>
-            <p>ACCESS INTELLIGENCE</p>
-            <h1>Entitlement Conflict Command Center</h1>
-            <span>Find dangerous entitlement combinations before they are exploited.</span>
+            <p>{viewCopy.eyebrow}</p>
+            <h1>{viewCopy.title}</h1>
+            <span>{viewCopy.description}</span>
           </div>
           <div className="search">
             <Search size={18} />
@@ -507,6 +607,26 @@ export default function DashboardClient() {
                 )}
               </article>
             </div>
+
+            <article className="panel coverage-panel">
+              <div className="panel-title">
+                <div>
+                  <p>CONNECTED EVIDENCE</p>
+                  <h2>Privilege conflict coverage</h2>
+                </div>
+                <span>{platformConflictCounts.length} active platforms</span>
+              </div>
+              <div className="coverage-grid">
+                {platformConflictCounts.map(({ platform, conflicts, identities }) => (
+                  <div className="coverage-item" key={platform}>
+                    <Cloud size={19} />
+                    <strong>{platform}</strong>
+                    <span>{conflicts} matched conflicts</span>
+                    <small>{identities} affected identities</small>
+                  </div>
+                ))}
+              </div>
+            </article>
           </>
         )}
       </section>
