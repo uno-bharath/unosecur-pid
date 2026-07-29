@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IdentityType {
+  HUMAN
+  SERVICE_ACCOUNT
+  WORKLOAD
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Identity {
+  id           String       @id @default(cuid())
+  externalId   String
+  displayName  String
+  email        String?
+  type         IdentityType
+  provider     String
+  riskScore    Int          @default(0)
+  lastActiveAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  grants       Grant[]
+  findings     Finding[]
+
+  @@unique([provider, externalId])
+  @@index([riskScore])
+}
+
+model Grant {
+  id         String   @id @default(cuid())
+  identityId String
+  platform   String
+  permission String
+  resource   String
+  source     String
+  createdAt  DateTime @default(now())
+  identity   Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@index([identityId, platform])
+}
+
+model RiskRule {
+  id             String     @id
+  title          String
+  platform       String
+  category       String
+  severity       Severity
+  description    String
+  businessImpact String
+  remediation    String
+  mitreMappings  String[]
+  nistMappings   String[]
+  findings       Finding[]
+}
+
+model Finding {
+  id         String   @id @default(cuid())
+  identityId String
+  ruleId     String
+  severity   Severity
+  confidence Float
+  evidence   Json
+  status     String   @default("OPEN")
+  detectedAt DateTime @default(now())
+  identity   Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  rule       RiskRule @relation(fields: [ruleId], references: [id])
+
+  @@index([identityId, severity])
+}
