@@ -23,6 +23,10 @@
     "pid:validate": "./scripts/pid.sh validate",
     "pid:stop": "./scripts/pid.sh stop",
     "pid:all": "./scripts/pid.sh all",
+    "pid:deploy": "./scripts/deploy.sh up",
+    "pid:deploy:status": "./scripts/deploy.sh status",
+    "pid:deploy:logs": "./scripts/deploy.sh logs",
+    "pid:deploy:stop": "./scripts/deploy.sh down",
     "prepare": "husky"
   },
   "devDependencies": {

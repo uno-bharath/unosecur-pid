@@ -182,10 +182,55 @@ Internet access is needed only to install dependencies and download a local mode
 
 ## Setup
 
+### Portable deployment — recommended
+
+The portable deployment requires only Docker. The deployment script detects the
+operating system, installs Docker where the host package manager supports it,
+creates private credentials, builds the API and dashboard, starts PostgreSQL,
+Redis, and Neo4j, applies Prisma migrations, loads the demonstration dataset,
+and serves the application.
+
+macOS, Linux, or Windows Subsystem for Linux:
+
+```bash
+./scripts/deploy.sh
+```
+
+Native Windows PowerShell:
+
+```powershell
+.\scripts\deploy.ps1
+```
+
+Open the dashboard at <http://localhost:3000>. No host installation of Node.js,
+pnpm, PostgreSQL, Redis, or Neo4j is required. Ollama is optional; when it is
+not running, PID uses its evidence-grounded deterministic narrative engine.
+
+Deployment operations:
+
+```bash
+./scripts/deploy.sh status
+./scripts/deploy.sh logs
+./scripts/deploy.sh down
+```
+
+To expose PID to other devices on a trusted network, provide the host name or
+address before the first deployment:
+
+```bash
+PID_PUBLIC_HOST=pid.example.internal ./scripts/deploy.sh
+```
+
+For internet-facing production use, place PID behind an authenticated TLS
+reverse proxy and replace the generated development secrets with managed
+secrets. The single-command deployment is intended for local demonstrations,
+evaluation environments, and controlled internal deployments.
+
 ### One-command workflow
 
 The lifecycle runner is the recommended way to operate the complete local
-environment:
+developer environment when PostgreSQL, Node.js, pnpm, and Ollama are already
+installed on the host:
 
 ```bash
 ./scripts/pid.sh all

@@ -10,7 +10,9 @@ coverage
 .turbo
 .env
 .env.local
+.env.deploy
 !.env.example
+!.env.deploy.example
 .DS_Store
 *.log
 *.tsbuildinfo
