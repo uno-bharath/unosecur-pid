@@ -205,7 +205,7 @@ start a second PostgreSQL container.
 
 ### Hackathon technology requirements
 
-| Requirement | Minimum for the MVP | Recommended for the demo |
+| Requirement | Minimum for the MVP | Recommended |
 | --- | --- | --- |
 | Operating system | macOS, Linux, or Windows with WSL2 | macOS or Linux |
 | Memory | 12 GB with a 4B local model | 16 GB or more |
@@ -474,7 +474,7 @@ Current automated coverage includes:
 - Future remediation actions require MCP guardrails, audit records, and human
   approval.
 
-## Known MVP limitations
+## Known limitations
 
 - Identity data is currently seeded through the demo Prisma adapter.
 - Effective-access paths are reconstructed from demo grant sources.
@@ -487,9 +487,6 @@ Current automated coverage includes:
 - Production UnoSecur adapters are not yet implemented.
 
 ## Roadmap
-
-### Phase 1 — completed
-
 - Product ownership boundary
 - Provider-neutral Toxic Access contracts
 - Replaceable identity-access port
@@ -497,35 +494,20 @@ Current automated coverage includes:
 - Deterministic conflict engine
 - Conflict-resolution simulation
 - Floating Copilot launcher
-
-### Phase 2 — in progress
-
 - Dashboard backed by `/api/toxic-access`
 - Conflict-based metrics and identity detail
 - Effective-access visualization
 - Copilot grounded in conflicts instead of local scores
-
-### Phase 3
-
 - Uno Entities adapter
 - Uno Scoring context adapter
 - Uno Detect finding/evidence adapter
 - Stable canonical identity identifiers
-
-### Phase 4
-
 - Neo4j effective-access graph
 - Direct, inherited, nested-group, delegated, and cross-account paths
 - Resource-aware conflict evaluation
-
-### Phase 5
-
 - Minimum-change remediation optimizer
 - Risk-reduction versus business-access preservation ranking
 - Role, group, boundary, and JIT what-if operations
-
-### Phase 6
-
 - MCP Gateway guardrails
 - Approval-controlled Jira or ServiceNow remediation requests
 - Tamper-evident Copilot audit history
