@@ -93,7 +93,8 @@ export class CopilotService {
     }. ${
       topConflict?.businessImpact ?? 'A compromise could cross multiple control planes.'
     } Recommended first action: ${
-      topConflict?.remediation ?? 'remove one side of the conflict and require independent approval.'
+      topConflict?.remediation ??
+      'remove one side of the conflict and require independent approval.'
     }`;
   }
 }

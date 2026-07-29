@@ -15,14 +15,20 @@ const identity: IdentityAccessSnapshot = {
       platform: 'ERP',
       permission: 'vendor:create',
       resource: 'erp:vendors',
-      assignment: { source: 'operator-role', path: ['Finance User', 'operator-role', 'vendor:create'] },
+      assignment: {
+        source: 'operator-role',
+        path: ['Finance User', 'operator-role', 'vendor:create'],
+      },
     },
     {
       id: 'approve-grant',
       platform: 'ERP',
       permission: 'payment:approve',
       resource: 'erp:payments',
-      assignment: { source: 'approver-role', path: ['Finance User', 'approver-role', 'payment:approve'] },
+      assignment: {
+        source: 'approver-role',
+        path: ['Finance User', 'approver-role', 'payment:approve'],
+      },
     },
     {
       id: 'read-grant',

@@ -5,10 +5,7 @@ import {
   ToxicAccessSimulation,
   ToxicAccessConflict,
 } from './domain/toxic-access.types';
-import {
-  IDENTITY_ACCESS_SOURCE,
-  IdentityAccessSource,
-} from './ports/identity-access-source';
+import { IDENTITY_ACCESS_SOURCE, IdentityAccessSource } from './ports/identity-access-source';
 import { ToxicAccessCatalogService } from './toxic-access-catalog.service';
 import { ToxicAccessEngineService } from './toxic-access-engine.service';
 
@@ -36,10 +33,7 @@ export class ToxicAccessService {
       .sort((left, right) => right.summary.critical - left.summary.critical);
   }
 
-  async simulate(
-    identityId: string,
-    removePermissions: string[],
-  ): Promise<ToxicAccessSimulation> {
+  async simulate(identityId: string, removePermissions: string[]): Promise<ToxicAccessSimulation> {
     const identity = await this.requireIdentity(identityId);
     const rules = this.catalog.getRules();
     const current = this.engine.evaluate(identity, rules);

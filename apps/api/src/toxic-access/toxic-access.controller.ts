@@ -1,10 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SimulateToxicAccessDto } from './dto/simulate-toxic-access.dto';
-import {
-  ToxicAccessEvaluation,
-  ToxicAccessSimulation,
-} from './domain/toxic-access.types';
+import { ToxicAccessEvaluation, ToxicAccessSimulation } from './domain/toxic-access.types';
 import { ToxicAccessService } from './toxic-access.service';
 
 @ApiTags('toxic-access')

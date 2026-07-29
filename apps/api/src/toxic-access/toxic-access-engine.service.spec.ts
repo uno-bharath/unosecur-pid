@@ -1,7 +1,4 @@
-import {
-  IdentityAccessSnapshot,
-  ToxicCombinationRule,
-} from './domain/toxic-access.types';
+import { IdentityAccessSnapshot, ToxicCombinationRule } from './domain/toxic-access.types';
 import { ToxicAccessEngineService } from './toxic-access-engine.service';
 
 const rule: ToxicCombinationRule = {
@@ -38,7 +35,10 @@ const identity: IdentityAccessSnapshot = {
       platform: 'AWS',
       permission: 'role:assume',
       resource: 'aws:role/prod',
-      assignment: { source: 'developer-role', path: ['Test Identity', 'developer-role', 'role:assume'] },
+      assignment: {
+        source: 'developer-role',
+        path: ['Test Identity', 'developer-role', 'role:assume'],
+      },
     },
   ],
 };
@@ -55,7 +55,9 @@ describe('ToxicAccessEngineService', () => {
   });
 
   it('does not match when one required control plane is absent', () => {
-    expect(engine.evaluate({ ...identity, grants: identity.grants.slice(0, 1) }, [rule])).toEqual([]);
+    expect(engine.evaluate({ ...identity, grants: identity.grants.slice(0, 1) }, [rule])).toEqual(
+      [],
+    );
   });
 
   it('supports wildcard resource constraints', () => {

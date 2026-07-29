@@ -23,8 +23,7 @@ export class RiskController {
   @Get('identities')
   @ApiOperation({
     summary: 'List demo identities ranked by local score',
-    description:
-      'Hackathon compatibility endpoint. Use /toxic-access for entitlement conflicts.',
+    description: 'Hackathon compatibility endpoint. Use /toxic-access for entitlement conflicts.',
     deprecated: true,
   })
   getIdentities(): Promise<ToxicIdentity[]> {
@@ -34,8 +33,7 @@ export class RiskController {
   @Get('identities/:id')
   @ApiOperation({
     summary: 'Get demo identity risk evidence',
-    description:
-      'Hackathon compatibility endpoint. Production findings are owned by Uno Detect.',
+    description: 'Hackathon compatibility endpoint. Production findings are owned by Uno Detect.',
     deprecated: true,
   })
   getIdentity(@Param('id') id: string): Promise<ToxicIdentity> {
@@ -45,8 +43,7 @@ export class RiskController {
   @Post('scan')
   @ApiOperation({
     summary: 'Run demo-only local risk evaluation',
-    description:
-      'Temporary MVP behavior; this does not replace Uno Scoring or Uno Detect.',
+    description: 'Temporary MVP behavior; this does not replace Uno Scoring or Uno Detect.',
     deprecated: true,
   })
   scan(): Promise<{ identitiesEvaluated: number; findingsCreated: number }> {
