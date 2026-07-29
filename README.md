@@ -8,10 +8,7 @@ across enterprise applications, identity providers, cloud platforms, source
 control, Kubernetes, and secret stores; explains how an identity received the
 access; and previews the smallest safe remediation without changing live access.
 
-This repository is a hackathon MVP and a proposed value-added capability for
-the wider UnoSecur platform.
-
-## Hackathon identity
+##  Identity
 
 | Item | Name |
 | --- | --- |
@@ -226,7 +223,6 @@ pnpm --filter @unosecur/api prisma:generate
 pnpm --filter @unosecur/api exec prisma migrate deploy
 ```
 
-Load the hackathon identities:
 ```bash
 pnpm --filter @unosecur/api prisma:seed
 ```
@@ -428,8 +424,3 @@ Current automated coverage includes:
 - MCP Gateway guardrails
 - Approval-controlled Jira or ServiceNow remediation requests
 - Tamper-evident Copilot audit history
-
-## License
-
-No project license has been selected yet. Add the appropriate organization or
-open-source license before external distribution.
