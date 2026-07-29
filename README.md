@@ -9,6 +9,19 @@ access; and previews the smallest safe remediation without changing live access.
 This repository is a hackathon MVP and a proposed value-added capability for
 the wider UnoSecur platform.
 
+## Hackathon identity
+
+| Item | Name |
+| --- | --- |
+| Product | **UnoSecur Toxic Access Intelligence** |
+| Repository | **toxic-access-intelligence** |
+| Team | **Access Sentinels** |
+| One-line pitch | Break dangerous access chains before they become attack paths. |
+
+The product name describes the capability precisely: the platform detects toxic
+access combinations rather than labelling people or machine identities as
+inherently toxic.
+
 ## Why this exists
 
 Access is usually reviewed one permission, role, or platform at a time. That
@@ -154,7 +167,7 @@ engine.
 ## Repository layout
 
 ```text
-enterprise-ai-security/
+toxic-access-intelligence/
 ├── apps/
 │   ├── api/
 │   │   ├── prisma/                  # MVP schema, migration, and seed data
@@ -187,6 +200,34 @@ enterprise-ai-security/
 
 The project reuses the existing local PostgreSQL installation. It does not
 start a second PostgreSQL container.
+
+### Hackathon technology requirements
+
+| Requirement | Minimum for the MVP | Recommended for the demo |
+| --- | --- | --- |
+| Operating system | macOS, Linux, or Windows with WSL2 | macOS or Linux |
+| Memory | 12 GB with a 4B local model | 16 GB or more |
+| Node.js | 20 | Current LTS |
+| pnpm | 10 | 10 |
+| PostgreSQL | 15 | 17 |
+| Docker | Current supported release | Docker Desktop with Compose |
+| Ollama | Local API enabled | `qwen3:4b` or `llama3:8b` |
+| Browser | Current Chrome, Edge, Firefox, or Safari | Chrome |
+
+The application uses these local ports:
+
+| Port | Service |
+| ---: | --- |
+| `3000` | Next.js dashboard |
+| `4000` | NestJS API |
+| `5432` | PostgreSQL |
+| `6379` | Redis |
+| `7474` | Neo4j browser |
+| `7687` | Neo4j Bolt protocol |
+| `11434` | Ollama |
+
+Internet access is needed only to install dependencies and download a local
+model. Runtime identity evidence and Copilot prompts remain on the workstation.
 
 ## Local setup
 
