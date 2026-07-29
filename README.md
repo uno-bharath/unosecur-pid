@@ -6,6 +6,9 @@ source control, and enterprise identity systems.
 ## What works
 
 - Executive risk dashboard with seeded multi-cloud demo data.
+- UnoSecur-themed investigation workspace with selectable identities and finding filters.
+- Interactive attack paths and non-destructive what-if remediation simulation.
+- Floating local AI Copilot grounded in stored identity evidence.
 - NestJS API with Swagger, validation, security headers, and health probes.
 - Explainable toxic-identity findings and contributing risk factors.
 - PostgreSQL/Prisma domain model for identities, grants, rules, and findings.
@@ -54,6 +57,8 @@ Useful endpoints:
 - `GET /api/risk/summary` returns dashboard metrics and toxic identities.
 - `GET /api/risk/identities` lists evaluated identities.
 - `GET /api/risk/identities/:id` returns one identity with evidence and findings.
+- `POST /api/risk/identities/:id/simulate` previews permission-removal impact.
+- `POST /api/copilot/ask` asks the locally hosted evidence-grounded Copilot.
 
 ## Validation
 

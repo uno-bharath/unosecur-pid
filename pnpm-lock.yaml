@@ -10,6 +10,9 @@ importers:
       '@eslint/js':
         specifier: ^9.17.0
         version: 9.39.5
+      '@next/eslint-plugin-next':
+        specifier: 15.5.22
+        version: 15.5.22
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1

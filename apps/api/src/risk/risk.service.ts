@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { RiskEngineService } from './risk-engine.service';
 import { RiskRepository } from './risk.repository';
 import { RuleCatalogService } from './rule-catalog.service';
-import { RiskSummary, ToxicIdentity } from './risk.types';
+import { RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
 
 @Injectable()
 export class RiskService {
@@ -68,5 +68,40 @@ export class RiskService {
       throw new NotFoundException(`Identity ${id} was not found`);
     }
     return identity;
+  }
+
+  async simulate(id: string, removePermissions: string[]): Promise<RiskSimulation> {
+    const rules = this.catalog.getRules();
+    const identity = (await this.repository.getScannableIdentities()).find(
+      (candidate) => candidate.id === id,
+    );
+    if (!identity) {
+      throw new NotFoundException(`Identity ${id} was not found`);
+    }
+
+    const currentMatches = this.engine.evaluate(identity, rules);
+    const removed = new Set(removePermissions);
+    const projectedMatches = this.engine.evaluate(
+      {
+        ...identity,
+        grants: identity.grants.filter(({ permission }) => !removed.has(permission)),
+      },
+      rules,
+    );
+    const projectedRuleIds = new Set(projectedMatches.map(({ rule }) => rule.id));
+    const currentScore = this.engine.calculateScore(currentMatches);
+    const projectedScore = this.engine.calculateScore(projectedMatches);
+
+    return {
+      identityId: id,
+      currentScore,
+      projectedScore,
+      scoreReduction: currentScore - projectedScore,
+      removedPermissions: [...removed],
+      resolvedFindings: currentMatches
+        .filter(({ rule }) => !projectedRuleIds.has(rule.id))
+        .map(({ rule }) => rule.title),
+      remainingFindings: projectedMatches.map(({ rule }) => rule.title),
+    };
   }
 }

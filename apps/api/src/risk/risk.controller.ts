@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SimulateRiskDto } from './dto/simulate-risk.dto';
 import { RiskService } from './risk.service';
-import { RiskSummary, ToxicIdentity } from './risk.types';
+import { RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
 
 @ApiTags('risk')
 @Controller('risk')
@@ -30,5 +31,11 @@ export class RiskController {
   @ApiOperation({ summary: 'Evaluate all stored identities against the rule catalogue' })
   scan(): Promise<{ identitiesEvaluated: number; findingsCreated: number }> {
     return this.riskService.scan();
+  }
+
+  @Post('identities/:id/simulate')
+  @ApiOperation({ summary: 'Preview risk reduction before permissions are removed' })
+  simulate(@Param('id') id: string, @Body() input: SimulateRiskDto): Promise<RiskSimulation> {
+    return this.riskService.simulate(id, input.removePermissions);
   }
 }

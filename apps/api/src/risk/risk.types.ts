@@ -88,3 +88,13 @@ export interface RiskSummary {
   platformCoverage: string[];
   topIdentities: ToxicIdentity[];
 }
+
+export interface RiskSimulation {
+  identityId: string;
+  currentScore: number;
+  projectedScore: number;
+  scoreReduction: number;
+  removedPermissions: string[];
+  resolvedFindings: string[];
+  remainingFindings: string[];
+}

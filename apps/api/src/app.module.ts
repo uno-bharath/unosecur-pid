@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { z } from 'zod';
+import { CopilotController } from './copilot/copilot.controller';
+import { CopilotService } from './copilot/copilot.service';
 import { HealthController } from './health/health.controller';
 import { HealthService } from './health/health.service';
 import { PrismaService } from './database/prisma.service';
@@ -20,7 +22,7 @@ const environmentSchema = z.object({
   NEO4J_USER: z.string().default('neo4j'),
   NEO4J_PASSWORD: z.string().default('neo4j_dev_password'),
   OLLAMA_BASE_URL: z.string().url().default('http://127.0.0.1:11434'),
-  OLLAMA_MODEL: z.string().default('qwen3:4b'),
+  OLLAMA_MODEL: z.string().default('llama3:8b-instruct-q4_K_M'),
 });
 
 @Module({
@@ -30,7 +32,7 @@ const environmentSchema = z.object({
       validate: (config) => environmentSchema.parse(config),
     }),
   ],
-  controllers: [HealthController, RiskController],
+  controllers: [HealthController, RiskController, CopilotController],
   providers: [
     PrismaService,
     HealthService,
@@ -38,6 +40,7 @@ const environmentSchema = z.object({
     RuleCatalogService,
     RiskEngineService,
     RiskService,
+    CopilotService,
   ],
 })
 export class AppModule {}
