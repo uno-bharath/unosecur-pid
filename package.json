@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.30.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "turbo run dev",
@@ -15,18 +15,22 @@
     "clean": "turbo run clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "infra:up": "docker compose -f infrastructure/docker/compose.yml up -d",
+    "infra:down": "docker compose -f infrastructure/docker/compose.yml down",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.0",
     "cross-env": "^10.1.0",
-    "eslint": "^10.8.0",
+    "eslint": "^9.17.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
     "prettier": "^3.9.6",
     "rimraf": "^6.1.3",
     "tsx": "^4.23.1",
     "turbo": "^2.10.7",
-    "typescript": "^7.0.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.1"
   }
 }
