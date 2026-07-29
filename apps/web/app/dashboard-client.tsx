@@ -268,7 +268,7 @@ export default function DashboardClient() {
         <div className="brand">
           <span>U</span>
           <div>
-            unosecur<small>TOXIC ACCESS INTELLIGENCE</small>
+            unosecur<small>PRIVILEGE INTELLIGENCE &amp; DETECTION</small>
           </div>
         </div>
         <nav>
@@ -297,7 +297,7 @@ export default function DashboardClient() {
         <header>
           <div>
             <p>ACCESS INTELLIGENCE</p>
-            <h1>Toxic Access Command Center</h1>
+            <h1>Entitlement Conflict Command Center</h1>
             <span>Find dangerous entitlement combinations before they are exploited.</span>
           </div>
           <div className="search">

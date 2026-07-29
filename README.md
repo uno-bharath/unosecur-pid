@@ -1,6 +1,8 @@
-# UnoSecur Toxic Access Intelligence
+# UnoSecur PID
 
-UnoSecur Toxic Access Intelligence identifies dangerous combinations of
+**Privilege Intelligence & Detection**
+
+UnoSecur PID identifies dangerous combinations of
 effective entitlements before they are exploited. It correlates permissions
 across enterprise applications, identity providers, cloud platforms, source
 control, Kubernetes, and secret stores; explains how an identity received the
@@ -13,10 +15,10 @@ the wider UnoSecur platform.
 
 | Item | Name |
 | --- | --- |
-| Product | **UnoSecur Toxic Access Intelligence** |
-| Repository | **toxic-access-intelligence** |
+| Product | **UnoSecur PID — Privilege Intelligence & Detection** |
+| Repository | **unosecur-pid** |
 | Team | **Access Sentinels** |
-| One-line pitch | Break dangerous access chains before they become attack paths. |
+| One-line pitch | Detect dangerous privilege combinations before they become attack paths. |
 
 The product name describes the capability precisely: the platform detects toxic
 access combinations rather than labelling people or machine identities as
@@ -167,7 +169,7 @@ engine.
 ## Repository layout
 
 ```text
-toxic-access-intelligence/
+unosecur-pid/
 ├── apps/
 │   ├── api/
 │   │   ├── prisma/                  # MVP schema, migration, and seed data

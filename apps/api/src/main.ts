@@ -13,7 +13,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const swagger = new DocumentBuilder()
-    .setTitle('UnoSecur Toxic Access Intelligence API')
+    .setTitle('UnoSecur PID — Privilege Intelligence & Detection API')
     .setDescription(
       'Entitlement-conflict detection, effective-access evidence, and non-destructive remediation simulation',
     )
