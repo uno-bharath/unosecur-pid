@@ -12,6 +12,7 @@
     "clean": "rimraf .next"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.2",
     "lucide-react": "^0.468.0",
     "next": "^15.1.3",
     "react": "^19.0.0",
