@@ -57,6 +57,9 @@ The project deliberately does not duplicate existing UnoSecur business logic.
 
 The complete boundary is documented in
 [`docs/architecture/toxic-access-boundary.md`](docs/architecture/toxic-access-boundary.md).
+The business operating modes, standards alignment, market differentiation, and
+delivery phases are documented in
+[`docs/PRODUCT_STRATEGY_AND_ROADMAP.md`](docs/PRODUCT_STRATEGY_AND_ROADMAP.md).
 
 ### Privilege intelligence engine
 
@@ -69,16 +72,36 @@ The complete boundary is documented in
 - MITRE ATT&CK and NIST mappings.
 - No locally invented production risk score.
 
+### Visual rule builder
+
+- Allows customer security teams to define organization-specific toxic
+  combinations without editing source files.
+- Builds AND conditions with OR permission alternatives, platform and resource
+  scope, and User/NHI applicability.
+- Captures severity, business impact, remediation, and security-control
+  mappings.
+- Tests draft rules against current effective-access evidence before saving.
+- Keeps drafts isolated from detection until explicitly published.
+- Adds published rules to the same deterministic engine used by built-in rules.
+- Stores customer rules, lifecycle state, version, and publication history in
+  PostgreSQL.
+
 ### What-if simulation
 
 - Removes proposed permissions from an in-memory snapshot.
 - Re-evaluates conflicts without persisting access changes.
 - Reports resolved and remaining conflicts.
 - Reports how many unrelated grants remain.
+- Supports users and Non-Human Identities (NHI), including workloads and service accounts.
+- Explains which verified toxic paths the proposed privilege removal prevents.
 
 ### Investigation experience
 
+- Executive Overview with selectable 7, 15, 30, and 90-day posture trends.
+- Daily toxic-identity, conflict, remediation, and attack-path snapshots.
+- Remediation efficiency and net-risk movement indicators.
 - Priority identity queue.
+- User and NHI filters with risky machine-action context.
 - Severity-filtered entitlement conflicts.
 - Interactive effective-access path.
 - Floating, animated UnoSecur Copilot.
@@ -89,22 +112,42 @@ The complete boundary is documented in
 - Uses Ollama through its local HTTP API.
 - Receives deterministic Toxic Access evidence.
 - Explains business impact and remediation.
+- Answers evidence-backed questions about rules, NHI risk, simulations, and 30-day remediation trends.
 - Falls back to a deterministic evidence summary if Ollama is unavailable.
 - Does not create scores, permissions, findings, or severity.
 
-## Initial conflict catalogue
+## Conflict catalogue
 
-Includes these unique examples:
+The catalogue currently contains 14 deterministic rules covering:
 
-| Rule                    | Purpose                                                   |
-| ----------------------- | --------------------------------------------------------- |
-| `TAI-SOD-FIN-001`       | Vendor creation and payment approval                      |
-| `TAI-SOD-IDM-001`       | Identity creation and administrator assignment            |
-| `TAI-XPLAT-CICD-001`    | Source control → AWS role delegation → Kubernetes control |
-| `TAI-XPLAT-SECRETS-001` | CI/CD secrets → AWS role delegation → Vault secrets       |
+- Financial and identity-administration separation of duties.
+- AWS privilege delegation, audit tampering, data movement, standing
+  credentials, and KMS lifecycle abuse.
+- Kubernetes RBAC escalation, workload creation, and secret access.
+- GitHub administration, workflow control, and branch-protection bypass.
+- Entra application registration, credential management, and tenant consent.
+- Vault policy and token issuance.
+- Cross-platform CI/CD, secret, cloud, backup, and production-control paths.
 
 Rules are stored in
 [`apps/api/src/toxic-access/rules/toxic-combinations.json`](apps/api/src/toxic-access/rules/toxic-combinations.json).
+
+### Capability coverage
+
+| Required capability                      | Status   | Implementation                                                       |
+| ---------------------------------------- | -------- | -------------------------------------------------------------------- |
+| At least five defined toxic rules        | Complete | 14 version-controlled deterministic rules                            |
+| Scan identities for combinations         | Complete | Provider-neutral effective-grant evaluation                          |
+| Identity, rule, and permission evidence  | Complete | Toxic Access API and identity investigation                          |
+| Risk narrative and attack scenario       | Complete | Business impact plus evidence-grounded Copilot explanation           |
+| Critical, high, and medium severity      | Complete | Rule-defined severity with UI filtering                              |
+| At least one cloud permission model      | Complete | AWS IAM/KMS plus Kubernetes, GitHub, Entra, Vault, GCP, and others   |
+| Remediation suggestions                  | Complete | Rule remediation and permission-removal simulation                   |
+| Cross-platform detection                 | Complete | Minimum-platform and platform-specific rule constraints              |
+| Custom rule authoring interface          | Complete | Visual builder, evidence preview, draft lifecycle, and publication   |
+| SoD matrix visualization                 | Planned  | Deterministic SoD rules exist; matrix visualization is not yet added |
+| Historical posture and remediation trend | Complete | Daily 90-day snapshots with selectable executive reporting periods   |
+| First-acquired entitlement timeline      | Planned  | Entitlement acquisition history awaits connected platform events     |
 
 ## Architecture
 
@@ -336,6 +379,7 @@ pnpm dev
 ```
 
 Open:
+
 - Dashboard: <http://localhost:3000>
 - API: <http://localhost:4000/api>
 - Swagger: <http://localhost:4000/docs>
@@ -427,6 +471,7 @@ Copilot is grounded in the Toxic Access evaluation for the selected identity.
 ```
 
 ## Walkthrough
+
 1. Open the command center.
 2. Select **Maya Patel** to show a finance segregation-of-duties conflict.
 3. Review the matched permissions and effective-access evidence.
@@ -438,6 +483,7 @@ Copilot is grounded in the Toxic Access evaluation for the selected identity.
    findings while this capability adds preventative combination analysis.
 
 ## Validation
+
 Run the complete workspace validation:
 
 ```bash
@@ -454,6 +500,7 @@ pnpm --filter @unosecur/api test
 ```
 
 Current automated coverage includes:
+
 - Complete and incomplete entitlement combinations
 - Cross-platform constraints
 - Effective-access evidence
@@ -463,6 +510,7 @@ Current automated coverage includes:
 - Existing demo compatibility behavior
 
 ## Security principles
+
 - Deterministic engines establish findings; the LLM only explains evidence.
 - Simulation never writes permission changes.
 - Secrets and service URLs are configured through environment variables.
@@ -472,6 +520,7 @@ Current automated coverage includes:
 - Future remediation actions require MCP guardrails, audit records, and human approval.
 
 ## Known limitations
+
 - Identity data is currently seeded through the demo Prisma adapter.
 - Effective-access paths are reconstructed from demo grant sources.
 - Neo4j readiness exists, but graph persistence is not yet the source of access paths.
@@ -480,15 +529,25 @@ Current automated coverage includes:
 - Copilot responses are non-streaming.
 - Production UnoSecur adapters are not yet implemented.
 
-## RoadMap
+## Roadmap
+
+PID develops through eight business-aligned phases: explainable combination
+detection, governed SoD management, production adapters, privilege history,
+advanced graph and NHI intelligence, remediation orchestration, enterprise
+governance, and production scale. See the
+[product strategy and roadmap](docs/PRODUCT_STRATEGY_AND_ROADMAP.md) for the
+operating modes, corporate stakeholders, standards alignment, measurable
+outcomes, market USP, and detailed delivery plan.
 
 ### Foundation and unique domain boundary
+
 - Provider-neutral privilege and entitlement contracts.
 - Replaceable identity-access source.
 - Deterministic combination catalogue and conflict engine.
 - Explicit ownership boundary with the existing UnoSecur repositories.
 
 ### Investigation experience
+
 - Conflict-based executive dashboard and identity investigation.
 - Effective-access evidence visualization.
 - Non-destructive permission-removal simulation.
@@ -496,6 +555,7 @@ Current automated coverage includes:
 - Animated, accessible floating Copilot launcher.
 
 ### Effective-access graph
+
 - Persist identities, groups, roles, policies, grants, and resources in Neo4j.
 - Resolve direct, inherited, nested-group, delegated, impersonated, and
   cross-account access.
@@ -503,12 +563,14 @@ Current automated coverage includes:
 - Visualize multiple alternative paths and their shared control points.
 
 ### Remediation intelligence
+
 - Minimum-change remediation optimizer.
 - Rank risk reduction against preserved business access.
 - Simulate role, group, permission-boundary, and just-in-time changes.
 - Compare multiple proposed remediations side by side.
 
 ### Governed enterprise workflows
+
 - Authentication, tenant authorization, and data-boundary enforcement.
 - MCP gateway with tool allowlists and human approval.
 - Approval-controlled Jira or ServiceNow remediation requests.
@@ -516,6 +578,7 @@ Current automated coverage includes:
 - Operational monitoring, performance tests, and deployment packaging.
 
 ## Further enhancement
+
 | Enhancement                    | Value added by PID                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | Privilege drift timeline       | Shows exactly when an identity became dangerous and which grant completed the conflict.    |

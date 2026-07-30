@@ -320,6 +320,36 @@
     }
   },
   {
+    "id": "PID-AWS-KMS-001",
+    "title": "KMS key creation, cryptographic use, and deletion conflict",
+    "description": "One identity can create a cryptographic key, use it to protect or access data, and schedule that key for deletion without independent oversight.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "A compromised or malicious identity can control the complete key lifecycle, deny access to protected workloads, and remove key material needed for recovery or investigation.",
+    "remediation": "Separate key administration from cryptographic use, require independent approval for deletion, and alert on key lifecycle changes.",
+    "requirements": [
+      {
+        "id": "key-creation",
+        "platform": "AWS",
+        "anyPermissions": ["kms:CreateKey"]
+      },
+      {
+        "id": "cryptographic-use",
+        "platform": "AWS",
+        "anyPermissions": ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"]
+      },
+      {
+        "id": "key-deletion",
+        "platform": "AWS",
+        "anyPermissions": ["kms:ScheduleKeyDeletion", "kms:DisableKey"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1486 Data Encrypted for Impact", "T1531 Account Access Removal"],
+      "nist": ["AC-5 Separation of Duties", "SC-12 Cryptographic Key Establishment and Management"]
+    }
+  },
+  {
     "id": "PID-GITHUB-GOV-001",
     "title": "Repository administration and protection bypass",
     "description": "An identity can modify repository content and disable the controls that protect production branches.",

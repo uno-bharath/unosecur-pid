@@ -89,6 +89,29 @@ export interface RiskSummary {
   topIdentities: ToxicIdentity[];
 }
 
+export interface PostureTrendPoint {
+  date: string;
+  toxicIdentities: number;
+  totalConflicts: number;
+  criticalConflicts: number;
+  newConflicts: number;
+  remediatedConflicts: number;
+  attackPaths: number;
+}
+
+export interface ExecutivePostureTrend {
+  periodDays: number;
+  points: PostureTrendPoint[];
+  summary: {
+    toxicIdentityChange: number;
+    toxicIdentityChangePercent: number;
+    conflictsRemediated: number;
+    newConflicts: number;
+    netConflictChange: number;
+    remediationEfficiency: number;
+  };
+}
+
 export interface RiskSimulation {
   identityId: string;
   currentScore: number;

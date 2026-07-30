@@ -4,7 +4,6 @@ import {
   Background,
   Controls,
   MarkerType,
-  MiniMap,
   ReactFlow,
   type Edge,
   type Node,
@@ -154,12 +153,13 @@ export function AttackPathGraph({ paths, selectedNode, onSelectNode }: AttackPat
       </div>
       <div className="attack-graph-canvas">
         <ReactFlow
+          key={graphPaths.map((path) => path.join('>')).join('|')}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.55}
+          fitViewOptions={{ padding: 0.35, minZoom: 0.65, maxZoom: 1 }}
+          minZoom={0.5}
           maxZoom={1.4}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -172,13 +172,6 @@ export function AttackPathGraph({ paths, selectedNode, onSelectNode }: AttackPat
           }}
         >
           <Background gap={18} color="#e6eaf2" />
-          <MiniMap
-            pannable
-            zoomable
-            nodeStrokeWidth={2}
-            maskColor="rgba(246, 247, 252, 0.7)"
-            className="attack-graph-minimap"
-          />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>

@@ -64,7 +64,15 @@ describe('ToxicAccessService', () => {
   const catalog = {
     getRules: jest.fn().mockReturnValue([rule]),
   } as unknown as ToxicAccessCatalogService;
-  const service = new ToxicAccessService(source, catalog, new ToxicAccessEngineService());
+  const customRules = {
+    getPublishedRules: jest.fn().mockResolvedValue([]),
+  } as unknown as import('./custom-toxic-rule.service').CustomToxicRuleService;
+  const service = new ToxicAccessService(
+    source,
+    catalog,
+    customRules,
+    new ToxicAccessEngineService(),
+  );
 
   it('reports the source and deterministic conflict summary without a local risk score', async () => {
     const result = await service.evaluateIdentity(identity.identityId);

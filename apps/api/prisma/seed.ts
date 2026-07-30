@@ -124,6 +124,9 @@ const demoIdentities = [
       ['AWS', 'credential:static', 'aws:iam:user/legacy-admin', 'access-key'],
       ['AWS', 'cloudtrail:StopLogging', 'aws:trail:legacy-production', 'direct-policy'],
       ['AWS', 's3:DeleteObject', 's3:audit-logs/legacy/*', 'direct-policy'],
+      ['AWS', 'kms:CreateKey', 'aws:kms:legacy-production/*', 'direct-policy'],
+      ['AWS', 'kms:Encrypt', 'aws:kms:legacy-production/*', 'direct-policy'],
+      ['AWS', 'kms:ScheduleKeyDeletion', 'aws:kms:legacy-production/*', 'direct-policy'],
     ],
   },
   {
@@ -224,6 +227,46 @@ async function seed(): Promise<void> {
         confidence: match.rule.confidence,
         evidence: match.evidence,
       })),
+    });
+  }
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  for (let index = 0; index < 90; index += 1) {
+    const snapshotDate = new Date(today.getTime() - (89 - index) * 86_400_000);
+    const isLatest = index === 89;
+    const toxicIdentities =
+      index < 30
+        ? 4 + Math.floor(index / 8)
+        : index < 55
+          ? 8 + Math.floor((index - 30) / 8)
+          : Math.max(7, 11 - Math.floor((index - 55) / 8));
+    const totalConflicts = isLatest ? 16 : toxicIdentities * 2 + (index % 3);
+    const criticalConflicts = isLatest
+      ? 13
+      : Math.max(2, Math.round(totalConflicts * (0.55 + (index % 4) * 0.04)));
+    const newConflicts = index % 7 === 0 ? 2 : index % 3 === 0 ? 1 : 0;
+    const remediatedConflicts = index < 48 ? 0 : index % 5 === 0 ? 2 : index % 2 === 0 ? 1 : 0;
+
+    await prisma.postureSnapshot.upsert({
+      where: { snapshotDate },
+      update: {
+        toxicIdentities,
+        totalConflicts,
+        criticalConflicts,
+        newConflicts,
+        remediatedConflicts,
+        attackPaths: Math.max(3, toxicIdentities + 2),
+      },
+      create: {
+        snapshotDate,
+        toxicIdentities,
+        totalConflicts,
+        criticalConflicts,
+        newConflicts,
+        remediatedConflicts,
+        attackPaths: Math.max(3, toxicIdentities + 2),
+      },
     });
   }
 }

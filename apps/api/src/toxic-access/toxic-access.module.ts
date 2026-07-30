@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { DemoPrismaIdentityAccessSource } from './adapters/demo-prisma-identity-access.source';
+import { CustomToxicRuleService } from './custom-toxic-rule.service';
 import { IDENTITY_ACCESS_SOURCE } from './ports/identity-access-source';
 import { ToxicAccessCatalogService } from './toxic-access-catalog.service';
 import { ToxicAccessController } from './toxic-access.controller';
@@ -13,6 +14,7 @@ import { ToxicAccessService } from './toxic-access.service';
     PrismaService,
     ToxicAccessCatalogService,
     ToxicAccessEngineService,
+    CustomToxicRuleService,
     ToxicAccessService,
     {
       provide: IDENTITY_ACCESS_SOURCE,

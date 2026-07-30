@@ -1,8 +1,17 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SimulateRiskDto } from './dto/simulate-risk.dto';
 import { RiskService } from './risk.service';
-import { RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
+import { ExecutivePostureTrend, RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
 
 @ApiTags('risk')
 @Controller('risk')
@@ -18,6 +27,16 @@ export class RiskController {
   })
   getSummary(): Promise<RiskSummary> {
     return this.riskService.getSummary();
+  }
+
+  @Get('executive-trend')
+  @ApiOperation({
+    summary: 'Get historical toxic-identity posture and remediation outcomes',
+  })
+  getExecutiveTrend(
+    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
+  ): Promise<ExecutivePostureTrend> {
+    return this.riskService.getExecutiveTrend(days);
   }
 
   @Get('identities')

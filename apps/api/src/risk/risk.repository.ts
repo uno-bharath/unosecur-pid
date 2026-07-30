@@ -3,6 +3,7 @@ import { Prisma, Severity } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import {
   BlastRadius,
+  PostureTrendPoint,
   RiskRuleDefinition,
   RiskSeverity,
   RuleMatch,
@@ -139,6 +140,26 @@ export class RiskRepository {
 
   async getFindingCount(): Promise<number> {
     return this.prisma.finding.count();
+  }
+
+  async getPostureTrend(days: number): Promise<PostureTrendPoint[]> {
+    const from = new Date();
+    from.setUTCHours(0, 0, 0, 0);
+    from.setUTCDate(from.getUTCDate() - (days - 1));
+    const snapshots = await this.prisma.postureSnapshot.findMany({
+      where: { snapshotDate: { gte: from } },
+      orderBy: { snapshotDate: 'asc' },
+    });
+
+    return snapshots.map((snapshot) => ({
+      date: snapshot.snapshotDate.toISOString(),
+      toxicIdentities: snapshot.toxicIdentities,
+      totalConflicts: snapshot.totalConflicts,
+      criticalConflicts: snapshot.criticalConflicts,
+      newConflicts: snapshot.newConflicts,
+      remediatedConflicts: snapshot.remediatedConflicts,
+      attackPaths: snapshot.attackPaths,
+    }));
   }
 
   private parseBlastRadius(value: Prisma.JsonValue): BlastRadius {

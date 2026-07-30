@@ -4,7 +4,7 @@ import { IdentityAccessSnapshot } from '../domain/toxic-access.types';
 import { IdentityAccessSource } from '../ports/identity-access-source';
 
 /**
- * Hackathon-only adapter. Production integrations should implement the same port
+ * Local demonstration adapter. Connected environments implement the same port
  * using Uno Entities and effective-entitlement APIs.
  */
 @Injectable()

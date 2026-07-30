@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { RiskEngineService } from './risk-engine.service';
 import { RiskRepository } from './risk.repository';
 import { RuleCatalogService } from './rule-catalog.service';
-import { RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
+import { ExecutivePostureTrend, RiskSimulation, RiskSummary, ToxicIdentity } from './risk.types';
 
 @Injectable()
 export class RiskService {
@@ -52,12 +52,44 @@ export class RiskService {
       attackPaths: identities.filter(({ attackPath }) => attackPath.length > 1).length,
       findings,
       platformCoverage,
-      topIdentities: identities.slice(0, 5),
+      topIdentities: identities,
     };
   }
 
   getIdentities(): Promise<ToxicIdentity[]> {
     return this.repository.getToxicIdentities();
+  }
+
+  async getExecutiveTrend(requestedDays: number): Promise<ExecutivePostureTrend> {
+    const periodDays = [7, 15, 30, 90].includes(requestedDays) ? requestedDays : 30;
+    const points = await this.repository.getPostureTrend(periodDays);
+    const first = points[0];
+    const last = points.at(-1);
+    const toxicIdentityChange = first && last ? last.toxicIdentities - first.toxicIdentities : 0;
+    const conflictsRemediated = points.reduce(
+      (total, point) => total + point.remediatedConflicts,
+      0,
+    );
+    const newConflicts = points.reduce((total, point) => total + point.newConflicts, 0);
+
+    return {
+      periodDays,
+      points,
+      summary: {
+        toxicIdentityChange,
+        toxicIdentityChangePercent:
+          first && first.toxicIdentities > 0
+            ? Math.round((toxicIdentityChange / first.toxicIdentities) * 100)
+            : 0,
+        conflictsRemediated,
+        newConflicts,
+        netConflictChange: first && last ? last.totalConflicts - first.totalConflicts : 0,
+        remediationEfficiency:
+          conflictsRemediated + newConflicts === 0
+            ? 0
+            : Math.round((conflictsRemediated / (conflictsRemediated + newConflicts)) * 100),
+      },
+    };
   }
 
   async getIdentity(id: string): Promise<ToxicIdentity> {

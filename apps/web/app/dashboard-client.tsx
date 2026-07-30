@@ -11,14 +11,18 @@ import {
   RefreshCw,
   Search,
   Send,
+  Settings,
   ShieldAlert,
+  SlidersHorizontal,
   Sparkles,
   Users,
   X,
   Zap,
 } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AttackPathGraph } from './components/attack-path-graph';
+import { ExecutivePostureTrend, ExecutiveTrendChart } from './components/executive-trend-chart';
+import { VisualRuleBuilder } from './components/visual-rule-builder';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 
@@ -81,6 +85,9 @@ interface ToxicAccessConflict {
 interface ToxicAccessEvaluation {
   identityId: string;
   displayName: string;
+  identityType: 'HUMAN' | 'SERVICE_ACCOUNT' | 'WORKLOAD';
+  provider: string;
+  evaluatedAt: string;
   source: string;
   conflicts: ToxicAccessConflict[];
   summary: {
@@ -108,7 +115,70 @@ interface CopilotAnswer {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 const severities: Array<'all' | Severity> = ['all', 'critical', 'high', 'medium'];
-type WorkspaceView = 'overview' | 'identities' | 'conflicts' | 'attack-paths' | 'coverage';
+type WorkspaceView =
+  'overview' | 'identities' | 'conflicts' | 'rule-builder' | 'attack-paths' | 'coverage';
+type IdentityTypeFilter = 'all' | 'HUMAN' | 'NHI';
+
+function identityTypeLabel(type?: string): string {
+  if (!type) return 'Identity';
+  return type === 'HUMAN' || type === 'Human' ? 'User' : 'NHI';
+}
+
+const connectorGuides: Record<
+  string,
+  { title: string; description: string; requirements: string[]; steps: string[] }
+> = {
+  AWS: {
+    title: 'AWS IAM adapter',
+    description: 'Collect effective IAM grants, role trust and resource access across accounts.',
+    requirements: ['AWS account ID', 'Read-only cross-account IAM role', 'External ID'],
+    steps: [
+      'Create the UnoSecur read-only discovery role from the provided policy.',
+      'Add the PID collector account to the role trust policy with an External ID.',
+      'Enter the role ARN and validate connectivity before enabling synchronization.',
+    ],
+  },
+  GCP: {
+    title: 'Google Cloud IAM adapter',
+    description: 'Resolve principals, groups, service accounts and inherited project permissions.',
+    requirements: ['Organization or project ID', 'Service account JSON', 'Cloud Asset Viewer role'],
+    steps: [
+      'Create a dedicated service account for permission discovery.',
+      'Grant Cloud Asset Viewer and Organization Viewer at the required scope.',
+      'Upload the credential securely and run the connection test.',
+    ],
+  },
+  AZURE: {
+    title: 'Azure / Entra adapter',
+    description: 'Discover Entra identities and effective Azure RBAC assignments.',
+    requirements: ['Tenant ID', 'Client ID', 'Client secret or certificate', 'Reader permissions'],
+    steps: [
+      'Register an Entra application for PID discovery.',
+      'Grant directory read and Azure subscription Reader permissions.',
+      'Provide tenant credentials and validate each target subscription.',
+    ],
+  },
+  GITHUB: {
+    title: 'GitHub adapter',
+    description: 'Evaluate organization roles, repository administration and Actions access.',
+    requirements: ['GitHub organization', 'GitHub App ID', 'Private key'],
+    steps: [
+      'Create a GitHub App with read-only organization and repository permissions.',
+      'Install it on the organizations and repositories in scope.',
+      'Enter the App credentials and verify repository discovery.',
+    ],
+  },
+  KUBERNETES: {
+    title: 'Kubernetes RBAC adapter',
+    description: 'Resolve subjects, bindings, service accounts and effective cluster permissions.',
+    requirements: ['Cluster endpoint', 'Read-only service account token', 'CA certificate'],
+    steps: [
+      'Apply the PID discovery ClusterRole and ServiceAccount manifest.',
+      'Provide the API endpoint, token and certificate authority data.',
+      'Test access and enable the RBAC synchronization interval.',
+    ],
+  },
+};
 
 const workspaceCopy: Record<
   WorkspaceView,
@@ -128,6 +198,12 @@ const workspaceCopy: Record<
     eyebrow: 'CONFLICT CATALOGUE',
     title: 'Dangerous Privilege Combinations',
     description: 'Review deterministic conflicts and the permissions that complete each pattern.',
+  },
+  'rule-builder': {
+    eyebrow: 'POLICY AUTHORING',
+    title: 'Visual Toxic-Combination Builder',
+    description:
+      'Create, test, and publish organization-specific privilege rules without editing code.',
   },
   'attack-paths': {
     eyebrow: 'ACCESS PATHS',
@@ -156,6 +232,16 @@ export default function DashboardClient() {
   const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [activeView, setActiveView] = useState<WorkspaceView>('overview');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [ruleFilter, setRuleFilter] = useState<string | null>(null);
+  const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('all');
+  const [connectorPlatform, setConnectorPlatform] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [trendRange, setTrendRange] = useState(30);
+  const [postureTrend, setPostureTrend] = useState<ExecutivePostureTrend | null>(null);
+  const [trendLoading, setTrendLoading] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectWorkspaceView = useCallback((view: WorkspaceView) => {
     setActiveView(view);
@@ -163,9 +249,9 @@ export default function DashboardClient() {
     window.history.pushState({ view }, '', target);
   }, []);
 
-  const loadSummary = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadSummary = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError(null);
     try {
       const [summaryResponse, accessResponse] = await Promise.all([
         fetch(`${apiUrl}/risk/summary`),
@@ -177,19 +263,55 @@ export default function DashboardClient() {
       const evaluations = (await accessResponse.json()) as ToxicAccessEvaluation[];
       setSummary(next);
       setAccessEvaluations(evaluations);
+      setLastUpdated(new Date());
       setSelectedId(
         (current) => current ?? evaluations[0]?.identityId ?? next.topIdentities[0]?.id ?? null,
       );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Risk API is unavailable');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadSummary();
+    const interval = window.setInterval(() => void loadSummary(true), 15_000);
+    return () => window.clearInterval(interval);
   }, [loadSummary]);
+
+  useEffect(() => {
+    let active = true;
+    setTrendLoading(true);
+    fetch(`${apiUrl}/risk/executive-trend?days=${trendRange}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Trend API returned ${response.status}`);
+        return response.json() as Promise<ExecutivePostureTrend>;
+      })
+      .then((trend) => {
+        if (active) setPostureTrend(trend);
+      })
+      .catch(() => {
+        if (active) setPostureTrend(null);
+      })
+      .finally(() => {
+        if (active) setTrendLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [trendRange]);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
 
   useEffect(() => {
     const syncViewFromLocation = () => {
@@ -197,6 +319,7 @@ export default function DashboardClient() {
       if (
         candidate === 'identities' ||
         candidate === 'conflicts' ||
+        candidate === 'rule-builder' ||
         candidate === 'attack-paths' ||
         candidate === 'coverage'
       ) {
@@ -225,9 +348,12 @@ export default function DashboardClient() {
   const filteredConflicts = useMemo(
     () =>
       selectedAccess?.conflicts.filter(
-        (conflict) => severity === 'all' || conflict.severity === severity,
+        (conflict) =>
+          (severity === 'all' || conflict.severity === severity) &&
+          (categoryFilter === 'all' || conflict.category === categoryFilter) &&
+          (!ruleFilter || conflict.ruleId === ruleFilter),
       ) ?? [],
-    [selectedAccess, severity],
+    [categoryFilter, ruleFilter, selectedAccess, severity],
   );
   const removablePermissions = useMemo(
     () =>
@@ -264,6 +390,15 @@ export default function DashboardClient() {
     setSelectedNode(null);
     setSimulation(null);
     setAnswer(null);
+  };
+
+  const openSearchResult = (evaluation: ToxicAccessEvaluation, conflict?: ToxicAccessConflict) => {
+    setSelectedId(evaluation.identityId);
+    setSeverity(conflict?.severity ?? 'all');
+    setCategoryFilter(conflict?.category ?? 'all');
+    setRuleFilter(conflict?.ruleId ?? null);
+    setSearchQuery('');
+    selectWorkspaceView(conflict ? 'conflicts' : 'identities');
   };
 
   const runSimulation = async (permission: string) => {
@@ -326,29 +461,164 @@ export default function DashboardClient() {
   ).size;
   const metrics = summary
     ? [
-        ['Toxic conflicts', String(totalConflicts), '', ShieldAlert, 'critical'],
-        ['Critical conflicts', String(criticalConflicts), '', Users, 'warning'],
-        ['Affected platforms', String(affectedPlatforms), '', GitBranch, 'accent'],
-        ['Identities evaluated', String(summary.identitiesScanned), '', Activity, 'neutral'],
+        {
+          label: 'Toxic conflicts',
+          value: totalConflicts,
+          Icon: ShieldAlert,
+          tone: 'critical',
+          target: 'conflicts' as WorkspaceView,
+        },
+        {
+          label: 'Critical conflicts',
+          value: criticalConflicts,
+          Icon: Users,
+          tone: 'critical-strong',
+          target: 'conflicts' as WorkspaceView,
+          severity: 'critical' as const,
+        },
+        {
+          label: 'Affected platforms',
+          value: affectedPlatforms,
+          Icon: GitBranch,
+          tone: 'accent',
+          target: 'coverage' as WorkspaceView,
+        },
+        {
+          label: 'Identities evaluated',
+          value: summary.identitiesScanned,
+          Icon: Activity,
+          tone: 'neutral',
+          target: 'identities' as WorkspaceView,
+        },
       ]
     : [];
   const viewCopy = workspaceCopy[activeView];
+  const ruleCategories = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { category: string; rules: Set<string>; identities: Set<string>; critical: number }
+    >();
+    accessEvaluations.forEach((evaluation) => {
+      evaluation.conflicts.forEach((conflict) => {
+        const current = grouped.get(conflict.category) ?? {
+          category: conflict.category,
+          rules: new Set<string>(),
+          identities: new Set<string>(),
+          critical: 0,
+        };
+        current.rules.add(conflict.ruleId);
+        current.identities.add(evaluation.identityId);
+        if (conflict.severity === 'critical') current.critical += 1;
+        grouped.set(conflict.category, current);
+      });
+    });
+    return [...grouped.values()].sort(
+      (left, right) => right.identities.size - left.identities.size,
+    );
+  }, [accessEvaluations]);
+  const visibleIdentities = useMemo(
+    () =>
+      accessEvaluations.filter(
+        ({ identityType }) =>
+          identityTypeFilter === 'all' ||
+          (identityTypeFilter === 'HUMAN' ? identityType === 'HUMAN' : identityType !== 'HUMAN'),
+      ),
+    [accessEvaluations, identityTypeFilter],
+  );
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+    return accessEvaluations
+      .flatMap((evaluation) => {
+        const matchingConflicts = evaluation.conflicts.filter((conflict) =>
+          [
+            conflict.title,
+            conflict.ruleId,
+            conflict.category,
+            conflict.severity,
+            ...conflict.platforms,
+            ...conflict.evidence.map(({ permission }) => permission),
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(query),
+        );
+        const identityMatches = [
+          evaluation.displayName,
+          evaluation.identityType,
+          evaluation.provider,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+        if (!identityMatches && matchingConflicts.length === 0) return [];
+        return [
+          {
+            evaluation,
+            conflict: matchingConflicts[0] ?? evaluation.conflicts[0],
+          },
+        ];
+      })
+      .slice(0, 8);
+  }, [accessEvaluations, searchQuery]);
   const platformConflictCounts = Array.from(
-    new Set(accessEvaluations.flatMap((evaluation) => evaluation.summary.affectedPlatforms)),
+    new Set([
+      ...Object.keys(connectorGuides),
+      ...accessEvaluations
+        .flatMap((evaluation) => evaluation.summary.affectedPlatforms)
+        .map((platform) => platform.toUpperCase()),
+    ]),
   )
     .map((platform) => ({
       platform,
       conflicts: accessEvaluations.reduce(
         (total, evaluation) =>
           total +
-          evaluation.conflicts.filter((conflict) => conflict.platforms.includes(platform)).length,
+          evaluation.conflicts.filter((conflict) =>
+            conflict.platforms.some((item) => item.toUpperCase() === platform),
+          ).length,
         0,
       ),
       identities: accessEvaluations.filter((evaluation) =>
-        evaluation.summary.affectedPlatforms.includes(platform),
+        evaluation.summary.affectedPlatforms.some((item) => item.toUpperCase() === platform),
       ).length,
     }))
     .sort((left, right) => right.conflicts - left.conflicts);
+  const selectedConnector = connectorPlatform
+    ? (connectorGuides[connectorPlatform.toUpperCase()] ?? {
+        title: `${connectorPlatform} adapter`,
+        description: `Connect ${connectorPlatform} effective permission evidence to PID.`,
+        requirements: ['Read-only discovery credentials', 'Target tenant or account scope'],
+        steps: [
+          'Create a dedicated read-only discovery identity.',
+          'Enter the target scope and credentials using secret storage.',
+          'Test access and enable scheduled synchronization.',
+        ],
+      })
+    : null;
+  const copilotSuggestions =
+    activeView === 'rule-builder'
+      ? [
+          'How do I create my own toxic combination?',
+          'How do AND and OR conditions work?',
+          'How can I test a rule before publishing?',
+          'Should this rule apply to Users, Service Accounts, or Workloads?',
+          'How do I scope a rule to a platform or resource?',
+          'What business impact and remediation should I enter?',
+          'Which control mappings should I add?',
+          'What happens after I publish a rule?',
+        ]
+      : [
+          'Why is this identity toxic?',
+          'Which privilege should I remove first?',
+          'Simulate removing the highest-risk privilege.',
+          'Which deterministic rules matched this identity?',
+          `What makes this ${identityTypeLabel(selectedAccess?.identityType)} risky?`,
+          'Explain the blast radius.',
+          'What business impact could this access cause?',
+          'Did remediation reduce toxic identities in the last 30 days?',
+          'How do I create my own toxic combination?',
+        ];
 
   return (
     <main>
@@ -376,7 +646,13 @@ export default function DashboardClient() {
             className={activeView === 'conflicts' ? 'active' : ''}
             onClick={() => selectWorkspaceView('conflicts')}
           >
-            <ShieldAlert size={18} /> Conflicts <b>{totalConflicts || '–'}</b>
+            <ShieldAlert size={18} /> Rule findings <b>{totalConflicts || '–'}</b>
+          </button>
+          <button
+            className={activeView === 'rule-builder' ? 'active' : ''}
+            onClick={() => selectWorkspaceView('rule-builder')}
+          >
+            <SlidersHorizontal size={18} /> Rule builder
           </button>
           <button
             className={activeView === 'attack-paths' ? 'active' : ''}
@@ -391,18 +667,6 @@ export default function DashboardClient() {
             <Cloud size={18} /> Cloud coverage
           </button>
         </nav>
-        <div className="agent-roster">
-          <p>ACTIVE PID AGENTS</p>
-          <span>
-            <i /> Conflict Analyst
-          </span>
-          <span>
-            <i /> Path Investigator
-          </span>
-          <span>
-            <i /> Remediation Advisor
-          </span>
-        </div>
       </aside>
 
       <section className={`content view-${activeView}`} id={activeView}>
@@ -412,10 +676,41 @@ export default function DashboardClient() {
             <h1>{viewCopy.title}</h1>
             <span>{viewCopy.description}</span>
           </div>
-          <div className="search">
-            <Search size={18} />
-            <span>Search identities, findings…</span>
-            <kbd>⌘ K</kbd>
+          <div className="search-shell">
+            <label className="search">
+              <Search size={18} />
+              <input
+                aria-label="Search identities, rules, permissions and platforms"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search identities, rules, permissions…"
+                ref={searchInputRef}
+                value={searchQuery}
+              />
+              <kbd>⌘ K</kbd>
+            </label>
+            {searchQuery.trim() && (
+              <div className="search-results">
+                {searchResults.map(({ evaluation, conflict }) => (
+                  <button
+                    key={`${evaluation.identityId}-${conflict?.ruleId ?? 'identity'}`}
+                    onClick={() => openSearchResult(evaluation, conflict)}
+                  >
+                    <span>
+                      <strong>{evaluation.displayName}</strong>
+                      <small>
+                        {identityTypeLabel(evaluation.identityType)} · {evaluation.provider}
+                      </small>
+                    </span>
+                    <span>
+                      {conflict?.title ?? 'Identity profile'}
+                      <small>{conflict?.ruleId ?? 'View effective access'}</small>
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
+                ))}
+                {searchResults.length === 0 && <p>No matching identity, rule or permission.</p>}
+              </div>
+            )}
           </div>
         </header>
 
@@ -431,65 +726,186 @@ export default function DashboardClient() {
           </div>
         )}
 
-        {summary && selectedIdentity && (
+        {activeView === 'rule-builder' && (
+          <VisualRuleBuilder onRulesChanged={() => void loadSummary()} />
+        )}
+
+        {activeView !== 'rule-builder' && summary && selectedIdentity && (
           <>
             <div className="metrics">
-              {metrics.map(([label, value, suffix, Icon, tone]) => {
-                const MetricIcon = Icon as typeof Activity;
-                return (
-                  <article className={`metric ${tone}`} key={String(label)}>
-                    <div>
-                      <span>{String(label)}</span>
-                      <MetricIcon size={19} />
-                    </div>
-                    <strong>
-                      {String(value)}
-                      <small>{String(suffix)}</small>
-                    </strong>
-                    <p>
-                      {label === 'Toxic conflicts'
-                        ? 'Deterministic entitlement evidence'
-                        : 'Live Toxic Access API'}
-                    </p>
-                  </article>
-                );
-              })}
+              {metrics.map(
+                ({ label, value, Icon: MetricIcon, tone, target, severity: targetSeverity }) => {
+                  return (
+                    <button
+                      className={`metric ${tone}`}
+                      key={label}
+                      onClick={() => {
+                        if (target === 'conflicts') setSeverity(targetSeverity ?? 'all');
+                        setRuleFilter(null);
+                        selectWorkspaceView(target);
+                      }}
+                    >
+                      <div>
+                        <span>{label}</span>
+                        <MetricIcon size={19} />
+                      </div>
+                      <strong>{value}</strong>
+                      <p>
+                        {label === 'Toxic conflicts'
+                          ? 'Deterministic entitlement evidence'
+                          : `Open ${target.replace('-', ' ')}`}
+                      </p>
+                    </button>
+                  );
+                },
+              )}
             </div>
+
+            {activeView === 'overview' && (
+              <>
+                <ExecutiveTrendChart
+                  loading={trendLoading}
+                  onRangeChange={setTrendRange}
+                  range={trendRange}
+                  trend={postureTrend}
+                />
+                <div className="overview-grid">
+                  <article className="panel overview-rules">
+                    <div className="panel-title">
+                      <div>
+                        <p>RULE CATEGORIES</p>
+                        <h2>Where toxic access is concentrated</h2>
+                      </div>
+                      <span>Click to investigate</span>
+                    </div>
+                    <div className="category-list">
+                      {ruleCategories.map(({ category, rules, identities, critical }) => (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            setCategoryFilter(category);
+                            setRuleFilter(null);
+                            setSeverity('all');
+                            const firstIdentity = accessEvaluations.find((evaluation) =>
+                              evaluation.conflicts.some(
+                                (conflict) => conflict.category === category,
+                              ),
+                            );
+                            if (firstIdentity) setSelectedId(firstIdentity.identityId);
+                            selectWorkspaceView('conflicts');
+                          }}
+                        >
+                          <span>
+                            <strong>{category.replaceAll('_', ' ')}</strong>
+                            <small>{rules.size} deterministic rules</small>
+                          </span>
+                          <span>
+                            <b>{identities.size}</b> identities
+                            <small>{critical} critical matches</small>
+                          </span>
+                          <ChevronRight size={17} />
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                  <article className="panel live-posture">
+                    <div className="panel-title">
+                      <div>
+                        <p>LIVE DETECTION</p>
+                        <h2>Current evaluation status</h2>
+                      </div>
+                      <span className="live-indicator">
+                        <i /> Refreshes every 15s
+                      </span>
+                    </div>
+                    <strong>{totalConflicts}</strong>
+                    <p>identity-to-rule matches across {affectedPlatforms} connected platforms.</p>
+                    <small>
+                      Last evaluated{' '}
+                      {lastUpdated?.toLocaleTimeString() ?? 'when data becomes available'}
+                    </small>
+                    <button
+                      className={loading ? 'refreshing' : ''}
+                      disabled={loading}
+                      onClick={() => void loadSummary()}
+                    >
+                      <RefreshCw size={15} /> {loading ? 'Refreshing…' : 'Refresh now'}
+                    </button>
+                  </article>
+                </div>
+              </>
+            )}
 
             <div className="workspace-grid">
               <article className="panel identity-list" id="identities">
                 <div className="panel-title">
                   <div>
-                    <p>PRIORITY QUEUE</p>
-                    <h2>Priority identities</h2>
+                    <p>
+                      {activeView === 'conflicts' ? 'AFFECTED USERS / ROLES' : 'PRIORITY QUEUE'}
+                    </p>
+                    <h2>
+                      {activeView === 'conflicts'
+                        ? 'Identities in this category'
+                        : 'Priority identities'}
+                    </h2>
                   </div>
                   <span>{summary.platformCoverage.length} platforms</span>
                 </div>
-                {summary.topIdentities.map((identity) => (
-                  <button
-                    className={`identity ${identity.id === selectedIdentity.id ? 'selected' : ''}`}
-                    key={identity.id}
-                    onClick={() => selectIdentity(identity)}
-                  >
-                    <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
-                    <div className="identity-copy">
-                      <strong>{identity.name}</strong>
-                      <small>
-                        {identity.department} · {identity.type}
-                      </small>
+                <div className="identity-type-filter">
+                  {(['all', 'HUMAN', 'NHI'] as IdentityTypeFilter[]).map((type) => (
+                    <button
+                      className={identityTypeFilter === type ? 'active' : ''}
+                      key={type}
+                      onClick={() => setIdentityTypeFilter(type)}
+                    >
+                      {type === 'all' ? 'All' : type === 'HUMAN' ? 'Users' : 'NHI'}
                       <span>
-                        {accessEvaluations.find(({ identityId }) => identityId === identity.id)
-                          ?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                        {type === 'all'
+                          ? accessEvaluations.length
+                          : accessEvaluations.filter(({ identityType }) =>
+                              type === 'HUMAN'
+                                ? identityType === 'HUMAN'
+                                : identityType !== 'HUMAN',
+                            ).length}
                       </span>
-                    </div>
-                    <div className="score conflict-count">
-                      {accessEvaluations.find(({ identityId }) => identityId === identity.id)
-                        ?.summary.total ?? 0}
-                      <small>CONFLICTS</small>
-                    </div>
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
+                {summary.topIdentities
+                  .filter((identity) =>
+                    visibleIdentities.some(
+                      ({ identityId, conflicts }) =>
+                        identityId === identity.id &&
+                        (activeView !== 'conflicts' ||
+                          categoryFilter === 'all' ||
+                          conflicts.some(({ category }) => category === categoryFilter)),
+                    ),
+                  )
+                  .map((identity) => (
+                    <button
+                      className={`identity ${identity.id === selectedIdentity.id ? 'selected' : ''}`}
+                      key={identity.id}
+                      onClick={() => selectIdentity(identity)}
+                    >
+                      <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
+                      <div className="identity-copy">
+                        <strong>{identity.name}</strong>
+                        <small>
+                          {identity.department} · {identityTypeLabel(identity.type)}
+                        </small>
+                        <span>
+                          {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                            ?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                        </span>
+                      </div>
+                      <div className="score conflict-count">
+                        {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                          ?.summary.total ?? 0}
+                        <small>CONFLICTS</small>
+                      </div>
+                      <ChevronRight size={16} />
+                    </button>
+                  ))}
               </article>
 
               <article className="panel identity-detail" id="findings">
@@ -510,30 +926,126 @@ export default function DashboardClient() {
                   </div>
                 </div>
 
+                {selectedAccess && selectedAccess.identityType !== 'HUMAN' && (
+                  <div className="nhi-context">
+                    <Bot size={18} />
+                    <span>
+                      <strong>Non-Human Identity privilege posture</strong>
+                      This workload or service identity participates in{' '}
+                      {selectedAccess?.summary.total ?? 0} toxic combinations across{' '}
+                      {selectedAccess?.summary.affectedPlatforms.length ?? 0} platforms.
+                    </span>
+                    <span>
+                      <strong>Risky actions</strong>
+                      {[
+                        ...new Set(
+                          selectedAccess?.conflicts.flatMap(({ evidence }) =>
+                            evidence.map(({ permission }) => permission),
+                          ) ?? [],
+                        ),
+                      ]
+                        .slice(0, 3)
+                        .join(' · ')}
+                    </span>
+                  </div>
+                )}
+
+                {activeView === 'conflicts' && (
+                  <>
+                    <div className="rule-category-filter">
+                      <button
+                        className={categoryFilter === 'all' ? 'active' : ''}
+                        onClick={() => {
+                          setCategoryFilter('all');
+                          setRuleFilter(null);
+                        }}
+                      >
+                        All categories
+                      </button>
+                      {ruleCategories.map(({ category, identities }) => (
+                        <button
+                          className={categoryFilter === category ? 'active' : ''}
+                          key={category}
+                          onClick={() => {
+                            setCategoryFilter(category);
+                            setRuleFilter(null);
+                            const firstIdentity = accessEvaluations.find((evaluation) =>
+                              evaluation.conflicts.some(
+                                (conflict) => conflict.category === category,
+                              ),
+                            );
+                            if (firstIdentity) setSelectedId(firstIdentity.identityId);
+                          }}
+                        >
+                          {category.replaceAll('_', ' ')}
+                          <span>{identities.size}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rule-trace">
+                      <span>
+                        <strong>Identity / role</strong>
+                        {selectedAccess?.displayName} ·{' '}
+                        {identityTypeLabel(selectedAccess?.identityType)}
+                      </span>
+                      <ChevronRight size={15} />
+                      <span>
+                        <strong>Provider</strong>
+                        {selectedAccess?.provider}
+                      </span>
+                      <ChevronRight size={15} />
+                      <span>
+                        <strong>Matched rules</strong>
+                        {filteredConflicts.length}
+                      </span>
+                    </div>
+                  </>
+                )}
+
                 <div className="filter-row">
                   {severities.map((item) => (
                     <button
                       className={severity === item ? 'active' : ''}
                       key={item}
-                      onClick={() => setSeverity(item)}
+                      onClick={() => {
+                        setSeverity(item);
+                        setRuleFilter(null);
+                      }}
                     >
                       {item}
                     </button>
                   ))}
+                  {ruleFilter && (
+                    <button className="active" onClick={() => setRuleFilter(null)}>
+                      {ruleFilter} <X size={11} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="finding-list">
                   {filteredConflicts.map((conflict) => (
-                    <div className="finding" key={conflict.ruleId}>
+                    <button
+                      className="finding"
+                      key={conflict.ruleId}
+                      onClick={() => {
+                        setSelectedNode(conflict.evidence[0]?.accessPath.at(-1) ?? null);
+                        selectWorkspaceView('attack-paths');
+                      }}
+                    >
                       <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
                       <div>
-                        <strong>{conflict.title}</strong>
+                        <strong>
+                          {conflict.title} <small>{conflict.ruleId}</small>
+                        </strong>
                         <p>{conflict.businessImpact}</p>
                         <small>
-                          {conflict.platforms.join(' → ')} · {conflict.mappings.nist.join(', ')}
+                          {conflict.category.replaceAll('_', ' ')} ·{' '}
+                          {conflict.platforms.join(' → ')} · {conflict.evidence.length} matched
+                          permissions
                         </small>
                       </div>
-                    </div>
+                      <ChevronRight size={16} />
+                    </button>
                   ))}
                   {filteredConflicts.length === 0 && (
                     <div className="empty-conflicts">
@@ -570,12 +1082,15 @@ export default function DashboardClient() {
                 <div className="panel-title">
                   <div>
                     <p>WHAT-IF REMEDIATION</p>
-                    <h2>Preview conflict resolution</h2>
+                    <h2>
+                      Simulate least privilege for {identityTypeLabel(selectedAccess?.identityType)}
+                    </h2>
                   </div>
                   <Sparkles size={19} />
                 </div>
                 <p className="muted">
-                  Select one permission to model its removal. No live access is changed.
+                  Select a privilege to calculate which toxic paths are prevented and which
+                  unrelated access remains. No live access is changed.
                 </p>
                 <div className="permission-list">
                   {removablePermissions.map((permission) => (
@@ -602,10 +1117,30 @@ export default function DashboardClient() {
                       <span>Access preserved</span>
                       <strong>{simulation.preservedGrantCount}</strong>
                     </div>
+                    <div>
+                      <span>Conflicts resolved</span>
+                      <strong className="positive">
+                        {simulation.currentConflictCount - simulation.projectedConflictCount}
+                      </strong>
+                    </div>
                     <p>
                       <Check size={15} />{' '}
                       {simulation.resolvedConflicts.join(', ') || 'No conflict fully resolved'}
                     </p>
+                    <section>
+                      <strong>Recommended remediation action</strong>
+                      <span>
+                        Revoke <b>{simulation.removedPermissions.join(', ')}</b>{' '}
+                        {simulation.resolvedConflicts.length > 0
+                          ? `to resolve ${simulation.resolvedConflicts.length} verified toxic combination${
+                              simulation.resolvedConflicts.length === 1 ? '' : 's'
+                            } while retaining ${simulation.preservedGrantCount} unrelated grants.`
+                          : 'does not fully resolve a toxic combination. Evaluate another matched privilege before submitting a change.'}
+                      </span>
+                      <small>
+                        Control recommendation: {selectedAccess?.conflicts[0]?.remediation}
+                      </small>
+                    </section>
                   </div>
                 )}
               </article>
@@ -621,15 +1156,69 @@ export default function DashboardClient() {
               </div>
               <div className="coverage-grid">
                 {platformConflictCounts.map(({ platform, conflicts, identities }) => (
-                  <div className="coverage-item" key={platform}>
+                  <button
+                    className="coverage-item"
+                    key={platform}
+                    onClick={() => setConnectorPlatform(platform)}
+                  >
                     <Cloud size={19} />
                     <strong>{platform}</strong>
-                    <span>{conflicts} matched conflicts</span>
-                    <small>{identities} affected identities</small>
-                  </div>
+                    <span>
+                      {conflicts > 0 ? `${conflicts} matched conflicts` : 'Ready to configure'}
+                    </span>
+                    <small>
+                      {identities > 0 ? `${identities} affected identities` : 'View requirements'}
+                    </small>
+                    <Settings size={15} className="coverage-settings" />
+                  </button>
                 ))}
               </div>
             </article>
+          </>
+        )}
+      </section>
+
+      <section
+        aria-hidden={!selectedConnector}
+        aria-label="Connector configuration requirements"
+        className={`connector-drawer ${selectedConnector ? 'open' : ''}`}
+      >
+        {selectedConnector && (
+          <>
+            <div className="connector-header">
+              <div>
+                <p>ADAPTER CONFIGURATION</p>
+                <h2>{selectedConnector.title}</h2>
+              </div>
+              <button
+                aria-label="Close connector details"
+                onClick={() => setConnectorPlatform(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p>{selectedConnector.description}</p>
+            <h3>Required details</h3>
+            <ul>
+              {selectedConnector.requirements.map((requirement) => (
+                <li key={requirement}>
+                  <Check size={15} /> {requirement}
+                </li>
+              ))}
+            </ul>
+            <h3>Configuration flow</h3>
+            <ol>
+              {selectedConnector.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            <div className="connector-action">
+              <Check size={16} /> Configuration requirements ready
+            </div>
+            <small>
+              Credentials are not collected in this demonstration. The production adapter stores
+              secrets in the organization vault and validates read-only access.
+            </small>
           </>
         )}
       </section>
@@ -673,7 +1262,11 @@ export default function DashboardClient() {
             <span className="copilot-status" aria-hidden="true" />
             <span className="copilot-tooltip" role="tooltip">
               Ask UnoSecur Copilot
-              <small>Investigate this identity</small>
+              <small>
+                {activeView === 'rule-builder'
+                  ? 'Design a custom rule'
+                  : 'Investigate this identity'}
+              </small>
             </span>
           </>
         )}
@@ -701,15 +1294,12 @@ export default function DashboardClient() {
         </div>
         <div className="copilot-body">
           <div className="assistant-message">
-            Ask about {selectedIdentity?.name ?? 'a toxic identity'}, its attack path, business
-            impact, or the safest remediation.
+            {activeView === 'rule-builder'
+              ? 'Ask how to design, test, scope, and publish your own toxic-combination rule.'
+              : `Ask about ${selectedIdentity?.name ?? 'a toxic identity'}, its attack path, business impact, or the safest remediation.`}
           </div>
           <div className="suggestions">
-            {[
-              'Why is this identity toxic?',
-              'What should I remove first?',
-              'Explain the blast radius.',
-            ].map((suggestion) => (
+            {copilotSuggestions.map((suggestion) => (
               <button key={suggestion} onClick={() => void askCopilot(undefined, suggestion)}>
                 {suggestion}
               </button>
@@ -731,7 +1321,11 @@ export default function DashboardClient() {
           <input
             aria-label="Ask Copilot"
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask about this identity…"
+            placeholder={
+              activeView === 'rule-builder'
+                ? 'Ask how to define a rule…'
+                : 'Ask about this identity…'
+            }
             value={question}
           />
           <button aria-label="Send question" disabled={asking || !question.trim()} type="submit">

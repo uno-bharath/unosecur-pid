@@ -73,6 +73,8 @@ export interface ToxicAccessConflict {
 export interface ToxicAccessEvaluation {
   identityId: string;
   displayName: string;
+  identityType: AccessIdentityType;
+  provider: string;
   evaluatedAt: string;
   source: string;
   conflicts: ToxicAccessConflict[];

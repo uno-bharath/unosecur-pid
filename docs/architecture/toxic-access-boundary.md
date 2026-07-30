@@ -25,7 +25,7 @@ scores, identities, event detections, or incident state.
 ## Ports and adapters
 
 The domain depends on `IdentityAccessSource`, not Prisma or a provider SDK.
-`DemoPrismaIdentityAccessSource` exists only for the hackathon dataset. A
+`DemoPrismaIdentityAccessSource` exists only for the demonstration dataset. A
 production adapter will translate canonical UnoSecur identity and effective
 entitlement responses into `IdentityAccessSnapshot`.
 
