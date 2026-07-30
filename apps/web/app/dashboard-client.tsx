@@ -18,6 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { AttackPathGraph } from './components/attack-path-graph';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 
@@ -246,6 +247,17 @@ export default function DashboardClient() {
       [],
     [selectedAccess, selectedIdentity],
   );
+  const attackPathGraphPaths = useMemo(() => {
+    const fromEvidence =
+      selectedAccess?.conflicts.flatMap((conflict) =>
+        conflict.evidence
+          .map(({ accessPath }) => accessPath.filter(Boolean))
+          .filter((path) => path.length > 0),
+      ) ?? [];
+    if (fromEvidence.length > 0) return fromEvidence;
+    if (selectedAccessPath.length > 0) return [selectedAccessPath];
+    return [];
+  }, [selectedAccess, selectedAccessPath]);
 
   const selectIdentity = (identity: ToxicIdentity) => {
     setSelectedId(identity.id);
@@ -539,26 +551,17 @@ export default function DashboardClient() {
                   </div>
                   <span>{selectedAccess?.source ?? 'demo compatibility'}</span>
                 </div>
-                <div className="nodes">
-                  {selectedAccessPath.map((node, index) => (
-                    <div className="node-wrap" key={`${node}-${index}`}>
-                      <button
-                        className={`node ${selectedNode === node ? 'selected' : ''} ${
-                          index === 0 || index === selectedAccessPath.length - 1 ? 'danger' : ''
-                        }`}
-                        onClick={() => setSelectedNode(node)}
-                      >
-                        {node}
-                      </button>
-                      {index < selectedAccessPath.length - 1 && <ChevronRight size={16} />}
-                    </div>
-                  ))}
-                </div>
+                <AttackPathGraph
+                  paths={attackPathGraphPaths}
+                  selectedNode={selectedNode}
+                  onSelectNode={setSelectedNode}
+                />
                 <div className="path-insight">
                   <Zap size={17} />
                   <span>
-                    {selectedNode ?? selectedAccessPath[0]} is part of an effective-access path
-                    contributing to {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
+                    {selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an
+                    effective-access path contributing to{' '}
+                    {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
                   </span>
                 </div>
               </article>
