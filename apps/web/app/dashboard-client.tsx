@@ -1508,7 +1508,6 @@ export default function DashboardClient() {
                           <p>RULE CATEGORIES</p>
                           <h2>Where toxic access is concentrated</h2>
                         </div>
-                        <span>Click to investigate</span>
                       </div>
                       <div className="category-list">
                         {ruleCategories.map(({ category, rules, identities, critical }) => {
