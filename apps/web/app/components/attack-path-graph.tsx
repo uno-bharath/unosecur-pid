@@ -15,6 +15,7 @@ import '@xyflow/react/dist/style.css';
 import { useMemo } from 'react';
 
 type PathTone = 'identity' | 'role' | 'warning' | 'danger';
+export type AttackPathDirection = 'forward' | 'reverse';
 
 interface AttackPathNodeData {
   label: string;
@@ -23,7 +24,13 @@ interface AttackPathNodeData {
   [key: string]: unknown;
 }
 
-function toneForIndex(index: number, total: number): PathTone {
+function toneForIndex(index: number, total: number, direction: AttackPathDirection): PathTone {
+  if (direction === 'reverse') {
+    if (index === 0) return 'danger';
+    if (index === total - 1) return 'identity';
+    if (index <= 1) return 'warning';
+    return 'role';
+  }
   if (index === 0) return 'identity';
   if (index === total - 1) return 'danger';
   if (index >= total - 2) return 'warning';
@@ -45,14 +52,19 @@ function AttackPathNode({ data }: NodeProps) {
 
 const nodeTypes = { attackPath: AttackPathNode };
 
-function buildGraph(paths: string[][], selectedNode: string | null) {
+function buildGraph(
+  paths: string[][],
+  selectedNode: string | null,
+  direction: AttackPathDirection,
+) {
   const nodeIds = new Map<string, string>();
   const nodes: Node<AttackPathNodeData>[] = [];
   const edgeKeys = new Set<string>();
   const edges: Edge[] = [];
   const columnBuckets = new Map<number, string[]>();
+  const oriented = paths.map((path) => (direction === 'reverse' ? [...path].reverse() : path));
 
-  paths.forEach((path) => {
+  oriented.forEach((path) => {
     path.forEach((label, index) => {
       if (!nodeIds.has(label)) {
         const id = `n-${nodeIds.size}`;
@@ -66,7 +78,7 @@ function buildGraph(paths: string[][], selectedNode: string | null) {
           position: { x: 0, y: 0 },
           data: {
             label,
-            tone: toneForIndex(index, path.length),
+            tone: toneForIndex(index, path.length, direction),
             selected: selectedNode === label,
           },
         });
@@ -129,31 +141,48 @@ function buildGraph(paths: string[][], selectedNode: string | null) {
 interface AttackPathGraphProps {
   paths: string[][];
   selectedNode: string | null;
+  direction?: AttackPathDirection;
   onSelectNode: (node: string) => void;
 }
 
-export function AttackPathGraph({ paths, selectedNode, onSelectNode }: AttackPathGraphProps) {
+export function AttackPathGraph({
+  paths,
+  selectedNode,
+  direction = 'forward',
+  onSelectNode,
+}: AttackPathGraphProps) {
   const graphPaths = useMemo(() => {
     const cleaned = paths.map((path) => path.filter(Boolean)).filter((path) => path.length > 0);
     return cleaned.length > 0 ? cleaned : [['Identity', 'Role', 'Resource']];
   }, [paths]);
 
   const { nodes, edges } = useMemo(
-    () => buildGraph(graphPaths, selectedNode),
-    [graphPaths, selectedNode],
+    () => buildGraph(graphPaths, selectedNode, direction),
+    [graphPaths, selectedNode, direction],
   );
 
   return (
     <div className="attack-graph-shell">
       <div className="attack-graph-legend">
-        <span className="tone-identity">Identity</span>
-        <span className="tone-role">Role / platform</span>
-        <span className="tone-warning">Warning</span>
-        <span className="tone-danger">Critical asset</span>
+        {direction === 'reverse' ? (
+          <>
+            <span className="tone-danger">Compromised asset</span>
+            <span className="tone-warning">Pivot / privilege</span>
+            <span className="tone-role">Role / platform</span>
+            <span className="tone-identity">Likely source identity</span>
+          </>
+        ) : (
+          <>
+            <span className="tone-identity">Identity</span>
+            <span className="tone-role">Role / platform</span>
+            <span className="tone-warning">Warning</span>
+            <span className="tone-danger">Critical asset</span>
+          </>
+        )}
       </div>
       <div className="attack-graph-canvas">
         <ReactFlow
-          key={graphPaths.map((path) => path.join('>')).join('|')}
+          key={`${direction}|${graphPaths.map((path) => path.join('>')).join('|')}`}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}

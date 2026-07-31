@@ -45,7 +45,7 @@ import type { IconType } from 'react-icons';
 import { VscAzure } from 'react-icons/vsc';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { AttackPathGraph } from './components/attack-path-graph';
+import { AttackPathDirection, AttackPathGraph } from './components/attack-path-graph';
 import {
   ExecutivePostureTrend,
   ExecutiveTrendChart,
@@ -562,38 +562,45 @@ const connectorGuides: Record<
 
 const workspaceCopy: Record<
   WorkspaceView,
-  { eyebrow: string; title: string; description: string }
+  { eyebrow: string; title: string; description: string; pathLabel: string }
 > = {
   overview: {
-    eyebrow: 'PRIVILEGE INTELLIGENCE',
-    title: 'Privilege Intelligence Command Center',
-    description: 'See enterprise entitlement conflicts, affected identities, and control planes.',
+    eyebrow: 'OVERVIEW',
+    title: 'Privilege Intelligence Overview',
+    description: 'Executive toxic-identity posture, category concentration, and live platform coverage.',
+    pathLabel: 'Overview',
   },
   identities: {
-    eyebrow: 'IDENTITY EXPLORER',
-    title: 'Effective Access by Identity',
+    eyebrow: 'IDENTITIES',
+    title: 'Identities · Effective Access',
     description: 'Investigate human and machine identities with evidence-backed privilege context.',
+    pathLabel: 'Identities',
   },
   conflicts: {
-    eyebrow: 'CONFLICT CATALOGUE',
-    title: 'Dangerous Privilege Combinations',
+    eyebrow: 'RULE FINDINGS',
+    title: 'Rule Findings · Toxic Combinations',
     description: 'Review deterministic conflicts and the permissions that complete each pattern.',
+    pathLabel: 'Rule findings',
   },
   'rule-builder': {
-    eyebrow: 'POLICY AUTHORING',
-    title: 'Visual Toxic-Combination Builder',
+    eyebrow: 'RULE BUILDER',
+    title: 'Rule Builder · Toxic Combinations',
     description:
       'Create, test, and publish organization-specific privilege rules without editing code.',
+    pathLabel: 'Rule builder',
   },
   'attack-paths': {
-    eyebrow: 'ACCESS PATHS',
-    title: 'Privilege Path Investigation',
-    description: 'Trace inherited and cross-platform access to high-value enterprise resources.',
+    eyebrow: 'ATTACK PATHS',
+    title: 'Attack Paths · Forward & Reverse Analysis',
+    description:
+      'Trace privilege pivots to high-value resources, or reverse the path to locate the attack source.',
+    pathLabel: 'Attack paths',
   },
   coverage: {
     eyebrow: 'CONNECTED PLATFORMS',
-    title: 'Connected Platforms',
-    description: 'Understand where PID currently evaluates privilege combinations and evidence.',
+    title: 'Connected Platforms · Evidence Coverage',
+    description: 'Configure adapters and review where PID evaluates privilege combinations.',
+    pathLabel: 'Connected Platforms',
   },
 };
 
@@ -610,6 +617,10 @@ export default function DashboardClient() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<CopilotAnswer | null>(null);
   const [asking, setAsking] = useState(false);
+  const [copilotHistory, setCopilotHistory] = useState<Array<{ question: string; answer: string }>>(
+    [],
+  );
+  const [pathDirection, setPathDirection] = useState<AttackPathDirection>('forward');
   const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
   const [coverage, setCoverage] = useState<RealtimeCoverageSummary | null>(null);
   const [simulationMode, setSimulationMode] = useState<'permission' | 'assignment'>('permission');
@@ -751,13 +762,21 @@ export default function DashboardClient() {
   }, [connectorPlatform]);
 
   useEffect(() => {
-    if (!connectorPlatform) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setConnectorPlatform(null);
+    const closeOverlays = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (connectorPlatform) {
+        setConnectorPlatform(null);
+        return;
+      }
+      if (copilotOpen) setCopilotOpen(false);
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [connectorPlatform]);
+    window.addEventListener('keydown', closeOverlays);
+    return () => window.removeEventListener('keydown', closeOverlays);
+  }, [connectorPlatform, copilotOpen]);
+
+  useEffect(() => {
+    document.title = `${workspaceCopy[activeView].title} · UnoSecur PID`;
+  }, [activeView]);
 
   useEffect(() => {
     void loadTrend();
@@ -949,13 +968,19 @@ export default function DashboardClient() {
         body: JSON.stringify({ question: prompt, identityId: selectedIdentity.id }),
       });
       if (!response.ok) throw new Error(`Copilot returned ${response.status}`);
-      setAnswer((await response.json()) as CopilotAnswer);
+      const next = (await response.json()) as CopilotAnswer;
+      setAnswer(next);
+      setCopilotHistory((history) => [{ question: prompt, answer: next.answer }, ...history].slice(0, 6));
     } catch (reason) {
-      setAnswer({
+      const fallback = {
         answer: reason instanceof Error ? reason.message : 'Copilot is unavailable.',
-        source: 'deterministic-fallback',
+        source: 'deterministic-fallback' as const,
         model: 'local',
-      });
+      };
+      setAnswer(fallback);
+      setCopilotHistory((history) =>
+        [{ question: prompt, answer: fallback.answer }, ...history].slice(0, 6),
+      );
     } finally {
       setAsking(false);
     }
@@ -1143,25 +1168,39 @@ export default function DashboardClient() {
           'What business impact and remediation should I enter?',
           'Which control mappings should I add?',
           'What happens after I publish a rule?',
+          'Write a custom query for AWS admin + audit disable',
         ]
-      : [
-          'Why is this identity toxic?',
-          'Which privilege should I remove first?',
-          'Simulate removing the highest-risk privilege.',
-          'Which deterministic rules matched this identity?',
-          `What makes this ${identityTypeLabel(selectedAccess?.identityType)} risky?`,
-          'Explain the blast radius.',
-          'What business impact could this access cause?',
-          'Did remediation reduce toxic identities in the last 30 days?',
-          'How do I create my own toxic combination?',
-        ];
+      : activeView === 'attack-paths'
+        ? [
+            'Explain this attack path forward',
+            'Reverse this path and find the likely source',
+            'Which privilege is the highest-risk pivot?',
+            'What resource is the blast-radius tip?',
+            'Simulate removing the first privilege hop',
+            'Custom query: list all paths that reach Vault secrets',
+            'How do I reduce this path without breaking business access?',
+          ]
+        : [
+            'Why is this identity toxic?',
+            'Which privilege should I remove first?',
+            'Simulate removing the highest-risk privilege.',
+            'Which deterministic rules matched this identity?',
+            `What makes this ${identityTypeLabel(selectedAccess?.identityType)} risky?`,
+            'Explain the blast radius.',
+            'What business impact could this access cause?',
+            'Did remediation reduce toxic identities in the last 30 days?',
+            'Custom query: top critical identities by platform',
+            'How do I create my own toxic combination?',
+            'Summarize rule category concentration',
+            'Which connected platforms have the most conflicts?',
+          ];
 
   return (
     <div className="app-shell">
       <header className="app-topbar">
         <div className="topbar-brand">
           <img
-            src="/unosecur-logo.png?v=2"
+            src="/unosecur-logo.png?v=3"
             alt="unosecur"
             className="topbar-logo-image"
             width={144}
@@ -1240,12 +1279,11 @@ export default function DashboardClient() {
         <section className={`content view-${activeView}`} id={activeView}>
           <header className="page-header">
             <div>
-              <h1>{activeView === 'overview' ? 'Welcome back' : viewCopy.title}</h1>
-              <span>
-                {activeView === 'overview'
-                  ? "Here's an overview of Privilege Intelligence & Detection"
-                  : viewCopy.description}
-              </span>
+              <p className="page-path">
+                Privilege Intelligence &amp; Detection / {viewCopy.pathLabel}
+              </p>
+              <h1>{viewCopy.title}</h1>
+              <span>{viewCopy.description}</span>
             </div>
             <div className="search-shell">
               <label className="search">
@@ -1365,7 +1403,6 @@ export default function DashboardClient() {
                                 className={`pid-integration-card ${conflicts > 0 ? 'has-risk' : ''}`}
                                 onClick={() => {
                                   setConnectorPlatform(platform);
-                                  selectWorkspaceView('coverage');
                                 }}
                               >
                                 <PlatformIcon platform={platform} />
@@ -1435,22 +1472,6 @@ export default function DashboardClient() {
                           <span>Identities</span>
                         </button>
                       </div>
-                      <div className="pid-orb-actions">
-                        <button
-                          type="button"
-                          className="primary-action"
-                          onClick={() => selectWorkspaceView('conflicts')}
-                        >
-                          Investigate findings
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-action"
-                          onClick={() => selectWorkspaceView('attack-paths')}
-                        >
-                          View attack paths
-                        </button>
-                      </div>
                     </div>
                   </section>
 
@@ -1468,6 +1489,7 @@ export default function DashboardClient() {
                           {coverage.identitiesObserved} identities · {coverage.entitlementsObserved}{' '}
                           effective entitlements · evaluated every {coverage.refreshIntervalSeconds}
                           s
+                          {lastUpdated ? ` · refreshed ${lastUpdated.toLocaleTimeString()}` : ''}
                         </small>
                         <small className="evidence-mode">
                           {coverage.evidenceMode === 'CONNECTED'
@@ -1482,7 +1504,6 @@ export default function DashboardClient() {
                             key={connector.id}
                             onClick={() => {
                               setConnectorPlatform(connector.platform);
-                              selectWorkspaceView('coverage');
                             }}
                           >
                             <i />
@@ -1491,6 +1512,16 @@ export default function DashboardClient() {
                             <small>{connector.entitlements || 'Configure'}</small>
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          className={`live-refresh-pill ${refreshing ? 'refreshing' : ''}`}
+                          aria-busy={refreshing}
+                          disabled={refreshing}
+                          onClick={() => void refreshLiveData()}
+                        >
+                          <RefreshCw size={14} aria-hidden />
+                          {refreshing ? 'Refreshing…' : 'Refresh'}
+                        </button>
                       </div>
                     </section>
                   )}
@@ -1550,50 +1581,12 @@ export default function DashboardClient() {
                             </button>
                           );
                         })}
+                        {ruleCategories.length === 0 && (
+                          <div className="empty-conflicts">
+                            No toxic categories detected yet. Connect evidence or refresh evaluation.
+                          </div>
+                        )}
                       </div>
-                    </article>
-                    <article className={`panel live-posture ${refreshing ? 'is-refreshing' : ''}`}>
-                      <div className="panel-title">
-                        <div>
-                          <p>LIVE DETECTION</p>
-                          <h2>Current evaluation status</h2>
-                        </div>
-                        <span className={`live-indicator ${refreshing ? 'active' : ''}`}>
-                          <i /> {refreshing ? 'Refreshing now…' : 'Live · click refresh'}
-                        </span>
-                      </div>
-                      <strong key={lastUpdated?.getTime() ?? 0}>{totalConflicts}</strong>
-                      <p>
-                        identity-to-rule matches across {affectedPlatforms} connected platforms.
-                      </p>
-                      <div className="live-posture-stats">
-                        <div>
-                          <b>{criticalConflicts}</b>
-                          <span>Critical</span>
-                        </div>
-                        <div>
-                          <b>{coverage?.identitiesObserved ?? displayIdentities.length}</b>
-                          <span>Scanned</span>
-                        </div>
-                        <div>
-                          <b>{affectedPlatforms}</b>
-                          <span>Platforms</span>
-                        </div>
-                      </div>
-                      <small>
-                        Last evaluated{' '}
-                        {lastUpdated?.toLocaleTimeString() ?? 'when data becomes available'}
-                      </small>
-                      <button
-                        type="button"
-                        className={refreshing ? 'refreshing' : ''}
-                        aria-busy={refreshing}
-                        disabled={refreshing}
-                        onClick={() => void refreshLiveData()}
-                      >
-                        <RefreshCw size={15} aria-hidden />
-                        {refreshing ? 'Refreshing…' : 'Refresh now'}
-                      </button>
                     </article>
                   </div>
 
@@ -1872,11 +1865,31 @@ export default function DashboardClient() {
                   <div className="panel-title">
                     <div>
                       <p>INTERACTIVE ATTACK PATH</p>
-                      <h2>Identity → high-value resource</h2>
+                      <h2>
+                        {pathDirection === 'reverse'
+                          ? 'Reverse path · find the attack source'
+                          : 'Identity → high-value resource'}
+                      </h2>
                     </div>
-                    <span>{selectedAccess?.source ?? 'demo compatibility'}</span>
+                    <div className="path-direction-toggle" aria-label="Attack path direction">
+                      <button
+                        type="button"
+                        className={pathDirection === 'forward' ? 'active' : ''}
+                        onClick={() => setPathDirection('forward')}
+                      >
+                        Forward
+                      </button>
+                      <button
+                        type="button"
+                        className={pathDirection === 'reverse' ? 'active' : ''}
+                        onClick={() => setPathDirection('reverse')}
+                      >
+                        Reverse source
+                      </button>
+                    </div>
                   </div>
                   <AttackPathGraph
+                    direction={pathDirection}
                     paths={attackPathGraphPaths}
                     selectedNode={selectedNode}
                     onSelectNode={setSelectedNode}
@@ -1884,9 +1897,13 @@ export default function DashboardClient() {
                   <div className="path-insight">
                     <Zap size={17} />
                     <span>
-                      {selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an
-                      effective-access path contributing to{' '}
-                      {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
+                      {pathDirection === 'reverse'
+                        ? `Working backward from ${
+                            selectedAccessPath.at(-1) ?? selectedNode ?? 'the compromised asset'
+                          } to locate the originating identity and privilege hops.`
+                        : `${selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an effective-access path contributing to ${
+                            selectedAccess?.conflicts[0]?.title ?? 'this investigation'
+                          }.`}
                     </span>
                   </div>
                 </article>
@@ -2118,6 +2135,15 @@ export default function DashboardClient() {
         />
       )}
 
+      {copilotOpen && (
+        <button
+          aria-label="Close Copilot"
+          className="copilot-backdrop"
+          onClick={() => setCopilotOpen(false)}
+          type="button"
+        />
+      )}
+
       <section
         aria-hidden={!selectedConnector}
         aria-label="Connector configuration requirements"
@@ -2300,9 +2326,30 @@ export default function DashboardClient() {
         <div className="copilot-body">
           <div className="assistant-message">
             {activeView === 'rule-builder'
-              ? 'Ask how to design, test, scope, and publish your own toxic-combination rule.'
-              : `Ask about ${selectedIdentity?.name ?? 'a toxic identity'}, its attack path, business impact, or the safest remediation.`}
+              ? 'Ask how to design, test, scope, and publish your own toxic-combination rule — or enter a custom query.'
+              : activeView === 'attack-paths'
+                ? 'Ask for forward impact analysis, reverse source tracing, or a custom path query.'
+                : `Ask about ${selectedIdentity?.name ?? 'a toxic identity'}, attack paths, remediation, or enter any custom evidence query.`}
           </div>
+          <p className="copilot-query-hint">
+            Custom queries supported — try “top critical identities by platform”, “reverse path to
+            Vault”, or “simulate removing iam:PassRole”.
+          </p>
+          {copilotHistory.length > 0 && (
+            <div className="copilot-history" aria-label="Recent Copilot answers">
+              {copilotHistory.slice(0, 3).map((item) => (
+                <button
+                  key={`${item.question}-${item.answer.slice(0, 24)}`}
+                  className="copilot-history-item"
+                  type="button"
+                  onClick={() => void askCopilot(undefined, item.question)}
+                >
+                  <strong>{item.question}</strong>
+                  <span>{item.answer.slice(0, 140)}{item.answer.length > 140 ? '…' : ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="suggestions">
             {copilotSuggestions.map((suggestion) => (
               <button key={suggestion} onClick={() => void askCopilot(undefined, suggestion)}>
@@ -2326,11 +2373,7 @@ export default function DashboardClient() {
           <input
             aria-label="Ask Copilot"
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder={
-              activeView === 'rule-builder'
-                ? 'Ask how to define a rule…'
-                : 'Ask about this identity…'
-            }
+            placeholder="Ask a question or type a custom query…"
             value={question}
           />
           <button aria-label="Send question" disabled={asking || !question.trim()} type="submit">

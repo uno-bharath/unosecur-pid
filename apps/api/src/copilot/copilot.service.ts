@@ -61,7 +61,7 @@ export class CopilotService {
             {
               role: 'system',
               content:
-                'You are UnoSecur Copilot. Use only the supplied evidence for identity findings. Be concise, explain attack paths and business impact, and recommend specific least-privilege remediation. You may also teach users how to use the PID Visual Rule Builder: define two or more AND conditions, use comma-separated permissions as OR alternatives, select User/NHI scope, add platform/resource constraints, test against current evidence, save a draft, and publish only after review. Never invent permissions, affected assets, or compliance claims.',
+                'You are UnoSecur Copilot for Privilege Intelligence & Detection. Use only supplied evidence. Answer identity findings, attack-path forward/reverse analysis, remediation simulation guidance, platform coverage, trend windows, and Visual Rule Builder questions. Accept custom analytical queries (top identities, category concentration, reverse source hops, privilege removal candidates). Never invent permissions, assets, or compliance claims.',
             },
             {
               role: 'user',
@@ -70,7 +70,7 @@ export class CopilotService {
               )}\n\n30-day posture trend:\n${JSON.stringify(trend.summary)}`,
             },
           ],
-          options: { num_predict: 400, temperature: 0.2 },
+          options: { num_predict: 520, temperature: 0.2 },
         }),
       });
       if (!response.ok) {
@@ -99,6 +99,38 @@ export class CopilotService {
   ): string {
     const topConflict = identity.conflicts[0];
     const normalizedQuestion = question.toLowerCase();
+    if (
+      normalizedQuestion.includes('reverse') ||
+      normalizedQuestion.includes('source of attack') ||
+      normalizedQuestion.includes('attack source')
+    ) {
+      const path =
+        topConflict?.evidence[0]?.accessPath ??
+        identity.conflicts.flatMap(({ evidence }) => evidence[0]?.accessPath ?? []);
+      if (path.length === 0) {
+        return `${identity.displayName} has no verified access path to reverse yet.`;
+      }
+      const reversed = [...path].reverse();
+      return `Reverse path analysis from the tip asset back to the source: ${reversed.join(
+        ' ← ',
+      )}. Likely originating identity is ${reversed.at(-1)}. Highest-risk pivot near the tip is ${
+        reversed[1] ?? reversed[0]
+      }.`;
+    }
+    if (
+      normalizedQuestion.includes('custom query') ||
+      normalizedQuestion.includes('top critical') ||
+      normalizedQuestion.includes('by platform') ||
+      normalizedQuestion.includes('category concentration')
+    ) {
+      const platforms = identity.summary.affectedPlatforms.join(', ') || 'no platforms';
+      const categories = [
+        ...new Set(identity.conflicts.map(({ category }) => category.replaceAll('_', ' '))),
+      ];
+      return `Custom query result for ${identity.displayName}: ${identity.summary.critical} critical / ${identity.summary.total} total conflicts across ${platforms}. Concentrated categories: ${
+        categories.join(', ') || 'none'
+      }. Leading rule ${topConflict?.ruleId ?? 'n/a'} — ${topConflict?.title ?? 'no match'}.`;
+    }
     if (
       normalizedQuestion.includes('create my own') ||
       normalizedQuestion.includes('define my own') ||
@@ -152,13 +184,23 @@ export class CopilotService {
     ) {
       return 'Business impact should state what an attacker or insider could accomplish with the full combination. Remediation should name the specific permission separation, approval, JIT, or immutable control that breaks it. Add only control mappings supported by the rule evidence, such as NIST AC-5 for separation of duties or AC-6 for least privilege.';
     }
-    if (normalizedQuestion.includes('30 day') || normalizedQuestion.includes('trend')) {
+    if (
+      normalizedQuestion.includes('30 day') ||
+      normalizedQuestion.includes('trend') ||
+      normalizedQuestion.includes('window')
+    ) {
       const direction = trend.summary.toxicIdentityChange <= 0 ? 'reduced' : 'increased';
-      return `Over the last 30 days, toxic identities ${direction} by ${Math.abs(
+      return `Over the last ${trend.periodDays} days, toxic identities ${direction} by ${Math.abs(
         trend.summary.toxicIdentityChangePercent,
       )}%. ${trend.summary.conflictsRemediated} conflicts were remediated, with ${
         trend.summary.remediationEfficiency
       }% remediation efficiency and a net conflict movement of ${trend.summary.netConflictChange}.`;
+    }
+    if (normalizedQuestion.includes('blast') || normalizedQuestion.includes('forward')) {
+      const path = topConflict?.evidence[0]?.accessPath?.join(' → ');
+      return path
+        ? `Forward path for ${identity.displayName}: ${path}. Tip asset exposure is driven by ${topConflict?.title}.`
+        : `${identity.displayName} blast radius spans ${identity.summary.affectedPlatforms.join(', ') || 'connected platforms'}.`;
     }
     if (normalizedQuestion.includes('rule')) {
       return `${identity.displayName} matched ${identity.conflicts.length} deterministic rules: ${identity.conflicts

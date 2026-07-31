@@ -40,9 +40,9 @@ interface ExecutiveTrendChartProps {
   onRangeChange: (days: number) => void;
 }
 
-const width = 840;
-const height = 285;
-const margin = { left: 44, right: 20, top: 24, bottom: 42 };
+const width = 960;
+const height = 420;
+const margin = { left: 48, right: 24, top: 28, bottom: 46 };
 const immunityPeriods = [7, 15, 30] as const;
 
 export function immunityGainFromToxicMovement(toxicIdentityChangePercent: number): number {
@@ -95,7 +95,7 @@ export function ExecutiveTrendChart({
     const xFor = (index: number) =>
       margin.left + (index / Math.max(points.length - 1, 1)) * plotWidth;
     const yFor = (value: number) =>
-      margin.top + plotHeight - (value / maxToxic) * (plotHeight - 18);
+      margin.top + plotHeight - (value / maxToxic) * (plotHeight - 12);
     const linePoints = points.map((point, index) => ({
       x: xFor(index),
       y: yFor(point.toxicIdentities),
@@ -132,6 +132,33 @@ export function ExecutiveTrendChart({
       immunityGainPercent: 0,
     };
   });
+  const windowAnalytics = useMemo(() => {
+    const points = trend?.points ?? [];
+    if (points.length === 0) {
+      return {
+        peakToxic: 0,
+        troughToxic: 0,
+        avgToxic: 0,
+        avgRemediated: 0,
+        daysWithRemediation: 0,
+        criticalShare: 0,
+      };
+    }
+    const toxicValues = points.map((point) => point.toxicIdentities);
+    const remediated = points.map((point) => point.remediatedConflicts);
+    const critical = points.reduce((sum, point) => sum + point.criticalConflicts, 0);
+    const total = points.reduce((sum, point) => sum + point.totalConflicts, 0);
+    return {
+      peakToxic: Math.max(...toxicValues),
+      troughToxic: Math.min(...toxicValues),
+      avgToxic: Math.round(toxicValues.reduce((sum, value) => sum + value, 0) / points.length),
+      avgRemediated: Number(
+        (remediated.reduce((sum, value) => sum + value, 0) / points.length).toFixed(1),
+      ),
+      daysWithRemediation: remediated.filter((value) => value > 0).length,
+      criticalShare: total > 0 ? Math.round((critical / total) * 100) : 0,
+    };
+  }, [trend]);
 
   return (
     <article className="panel executive-trend">
@@ -139,7 +166,10 @@ export function ExecutiveTrendChart({
         <div>
           <p>EXECUTIVE RISK TREND</p>
           <h2>Toxic identities and remediation impact</h2>
-          <span>Daily effective-access evaluation across connected control planes.</span>
+          <span>
+            {range}-day effective-access evaluation across connected control planes with time-window
+            analytics.
+          </span>
         </div>
         <div className="trend-ranges" aria-label="Trend period">
           {[7, 15, 30, 90].map((days) => (
@@ -147,6 +177,7 @@ export function ExecutiveTrendChart({
               className={range === days ? 'active' : ''}
               key={days}
               onClick={() => onRangeChange(days)}
+              type="button"
             >
               {days}D
             </button>
@@ -154,84 +185,114 @@ export function ExecutiveTrendChart({
         </div>
       </div>
 
-      <section className="immunity-gain" aria-label="Enterprise immunity gain">
-        <div className="immunity-gain-header">
-          <div>
-            <p>ENTERPRISE IMMUNITY GAIN</p>
-            <h3>Posture improvement from toxic identity movement</h3>
+      <div className="trend-analytics-layout">
+        <section className="immunity-gain" aria-label="Enterprise immunity gain">
+          <div className="immunity-gain-header">
+            <div>
+              <p>TIME DURATION WINDOW</p>
+              <h3>Posture improvement across comparison windows</h3>
+            </div>
+            <span>
+              Selected {range}D · {selectedImmunityGain > 0 ? '+' : ''}
+              {selectedImmunityGain}%
+            </span>
           </div>
-          <span>
-            Selected {range}D · {selectedImmunityGain > 0 ? '+' : ''}
-            {selectedImmunityGain}%
-          </span>
-        </div>
-        <div className="immunity-gain-grid">
-          {windows.map((window) => {
-            const tone = immunityTone(window.immunityGainPercent);
-            const WindowIcon =
-              window.immunityGainPercent > 0
-                ? ArrowDownRight
-                : window.immunityGainPercent < 0
-                  ? ArrowUpRight
-                  : ShieldCheck;
-            return (
-              <button
-                type="button"
-                key={window.days}
-                className={`immunity-card ${tone} ${range === window.days ? 'active' : ''}`}
-                onClick={() => onRangeChange(window.days)}
-              >
-                <span className="immunity-period">{window.days} days</span>
-                <strong>
-                  <WindowIcon size={16} aria-hidden />
-                  {window.immunityGainPercent > 0 ? '+' : ''}
-                  {window.immunityGainPercent}%
-                </strong>
-                <small>
-                  {tone === 'gained'
-                    ? 'Immunity gained'
-                    : tone === 'lost'
-                      ? 'Immunity eroded'
-                      : 'No net change'}
-                </small>
-                <em>
-                  Toxic identities {window.toxicIdentityChangePercent > 0 ? '+' : ''}
-                  {window.toxicIdentityChangePercent}%
-                </em>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          <div className="immunity-gain-grid">
+            {windows.map((window) => {
+              const tone = immunityTone(window.immunityGainPercent);
+              const WindowIcon =
+                window.immunityGainPercent > 0
+                  ? ArrowDownRight
+                  : window.immunityGainPercent < 0
+                    ? ArrowUpRight
+                    : ShieldCheck;
+              return (
+                <button
+                  type="button"
+                  key={window.days}
+                  className={`immunity-card ${tone} ${range === window.days ? 'active' : ''}`}
+                  onClick={() => onRangeChange(window.days)}
+                >
+                  <span className="immunity-period">{window.days} days</span>
+                  <strong>
+                    <WindowIcon size={16} aria-hidden />
+                    {window.immunityGainPercent > 0 ? '+' : ''}
+                    {window.immunityGainPercent}%
+                  </strong>
+                  <small>
+                    {tone === 'gained'
+                      ? 'Immunity gained'
+                      : tone === 'lost'
+                        ? 'Immunity eroded'
+                        : 'No net change'}
+                  </small>
+                  <em>
+                    Toxic identities {window.toxicIdentityChangePercent > 0 ? '+' : ''}
+                    {window.toxicIdentityChangePercent}%
+                  </em>
+                </button>
+              );
+            })}
+          </div>
+          <div className="window-analytics">
+            <div>
+              <span>Peak toxic identities</span>
+              <strong>{windowAnalytics.peakToxic}</strong>
+            </div>
+            <div>
+              <span>Trough / current floor</span>
+              <strong>{windowAnalytics.troughToxic}</strong>
+            </div>
+            <div>
+              <span>Average daily toxic</span>
+              <strong>{windowAnalytics.avgToxic}</strong>
+            </div>
+            <div>
+              <span>Avg remediated / day</span>
+              <strong>{windowAnalytics.avgRemediated}</strong>
+            </div>
+            <div>
+              <span>Days with remediation</span>
+              <strong>
+                {windowAnalytics.daysWithRemediation}/{trend?.points.length ?? 0}
+              </strong>
+            </div>
+            <div>
+              <span>Critical share</span>
+              <strong>{windowAnalytics.criticalShare}%</strong>
+            </div>
+          </div>
+        </section>
 
-      <div className="trend-summary">
-        <div>
-          <span>Toxic identity movement</span>
-          <strong className={improving ? 'positive' : 'negative'}>
-            <DirectionIcon size={18} />
-            {Math.abs(trend?.summary.toxicIdentityChangePercent ?? 0)}%
-          </strong>
-          <small>{improving ? 'Risk reduced' : 'Requires attention'}</small>
-        </div>
-        <div>
-          <span>Conflicts remediated</span>
-          <strong>{trend?.summary.conflictsRemediated ?? '–'}</strong>
-          <small>Permissions removed or separated</small>
-        </div>
-        <div>
-          <span>Remediation efficiency</span>
-          <strong>{trend?.summary.remediationEfficiency ?? '–'}%</strong>
-          <small>Resolved versus newly detected</small>
-        </div>
-        <div>
-          <span>Net conflict movement</span>
-          <strong
-            className={(trend?.summary.netConflictChange ?? 0) <= 0 ? 'positive' : 'negative'}
-          >
-            {(trend?.summary.netConflictChange ?? 0) > 0 ? '+' : ''}
-            {trend?.summary.netConflictChange ?? '–'}
-          </strong>
-          <small>Open findings in selected period</small>
+        <div className="trend-summary">
+          <div>
+            <span>Toxic identity movement</span>
+            <strong className={improving ? 'positive' : 'negative'}>
+              <DirectionIcon size={18} />
+              {Math.abs(trend?.summary.toxicIdentityChangePercent ?? 0)}%
+            </strong>
+            <small>{improving ? 'Risk reduced' : 'Requires attention'}</small>
+          </div>
+          <div>
+            <span>Conflicts remediated</span>
+            <strong>{trend?.summary.conflictsRemediated ?? '–'}</strong>
+            <small>Permissions removed or separated</small>
+          </div>
+          <div>
+            <span>Remediation efficiency</span>
+            <strong>{trend?.summary.remediationEfficiency ?? '–'}%</strong>
+            <small>Resolved versus newly detected</small>
+          </div>
+          <div>
+            <span>Net conflict movement</span>
+            <strong
+              className={(trend?.summary.netConflictChange ?? 0) <= 0 ? 'positive' : 'negative'}
+            >
+              {(trend?.summary.netConflictChange ?? 0) > 0 ? '+' : ''}
+              {trend?.summary.netConflictChange ?? '–'}
+            </strong>
+            <small>Open findings in selected period</small>
+          </div>
         </div>
       </div>
 
@@ -242,6 +303,7 @@ export function ExecutiveTrendChart({
               aria-label={`${range}-day toxic identity trend`}
               role="img"
               viewBox={`0 0 ${width} ${height}`}
+              preserveAspectRatio="none"
             >
               <defs>
                 <linearGradient id="toxic-area" x1="0" x2="0" y1="0" y2="1">
@@ -272,7 +334,7 @@ export function ExecutiveTrendChart({
               {chart.points.map((point, index) => {
                 const x = chart.xFor(index);
                 const barHeight =
-                  (point.remediatedConflicts / chart.maxRemediated) * (chart.plotHeight * 0.22);
+                  (point.remediatedConflicts / chart.maxRemediated) * (chart.plotHeight * 0.28);
                 return (
                   <rect
                     className="remediation-bar"
@@ -303,7 +365,7 @@ export function ExecutiveTrendChart({
                 </g>
               ))}
               {chart.points.map((point, index) => {
-                const interval = Math.max(1, Math.floor(chart.points.length / 5));
+                const interval = Math.max(1, Math.floor(chart.points.length / 6));
                 if (index % interval !== 0 && index !== chart.points.length - 1) return null;
                 return (
                   <text
@@ -311,7 +373,7 @@ export function ExecutiveTrendChart({
                     key={`label-${point.date}`}
                     textAnchor="middle"
                     x={chart.xFor(index)}
-                    y={height - 13}
+                    y={height - 14}
                   >
                     {new Date(point.date).toLocaleDateString(undefined, {
                       day: 'numeric',
@@ -333,7 +395,7 @@ export function ExecutiveTrendChart({
                 <strong>{activePoint.toxicIdentities} toxic identities</strong>
                 <small>
                   {activePoint.totalConflicts} conflicts · {activePoint.remediatedConflicts}{' '}
-                  remediated
+                  remediated · {activePoint.criticalConflicts} critical
                 </small>
               </div>
             )}
@@ -345,7 +407,7 @@ export function ExecutiveTrendChart({
                 <i className="remediation-column" /> Remediated conflicts
               </span>
               <span>
-                <ShieldCheck size={13} /> Evidence-backed daily snapshot
+                <ShieldCheck size={13} /> {range}D window · evidence-backed snapshot
               </span>
             </div>
           </>

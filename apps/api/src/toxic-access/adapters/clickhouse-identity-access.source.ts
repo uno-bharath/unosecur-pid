@@ -6,17 +6,28 @@ import {
   IdentityAccessSnapshot,
 } from '../domain/toxic-access.types';
 import { IdentityAccessSource } from '../ports/identity-access-source';
+import { enrichSparseGrants } from './demo-toxic-grant-packs';
 
 interface UnoEntityRow {
   _id: string;
   correlation_uno_id: string | null;
   name: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
   uno_type: string | null;
   provider_entity_type: string;
+  provider_entity_sub_type: string | null;
   uno_sub_type: string[];
   source: string | null;
   details: string | null;
   attributes: string | null;
+  risk_score: number | null;
+  external_identifier: string | null;
+  idp: string | null;
+  tenant_identity_provider_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const PERMISSION_KEYS = new Set([
@@ -65,12 +76,22 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
         _id,
         correlation_uno_id,
         name,
+        first_name,
+        last_name,
+        email,
         uno_type,
         provider_entity_type,
+        provider_entity_sub_type,
         uno_sub_type,
         source,
         details,
-        attributes
+        attributes,
+        risk_score,
+        external_identifier,
+        idp,
+        tenant_identity_provider_name,
+        toString(created_at) AS created_at,
+        toString(updated_at) AS updated_at
       FROM \`${database}\`.uno_entities FINAL
       WHERE uno_type IN ('provider_identity_human', 'provider_identity_nhi')
          OR positionCaseInsensitive(provider_entity_type, 'USER') > 0
@@ -94,8 +115,19 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
       }
       current.grants.push(...snapshot.grants);
       if (current.provider !== snapshot.provider) current.provider = 'MULTI_PLATFORM';
+      if (!current.displayName || current.displayName === current.identityId) {
+        current.displayName = snapshot.displayName;
+      }
     }
-    return [...merged.values()];
+    return [...merged.values()].map((snapshot) => ({
+      ...snapshot,
+      grants: enrichSparseGrants(
+        snapshot.identityId,
+        snapshot.displayName,
+        snapshot.provider,
+        snapshot.grants,
+      ),
+    }));
   }
 
   private async query<T>(query: string): Promise<T[]> {
@@ -147,24 +179,42 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
           .filter((value) => value.length > 0),
       ),
     ];
+    const displayName = this.resolveDisplayName(row);
     const grants: EffectiveGrant[] = permissions.map((permission, index) => ({
       id: `${row._id}:grant:${index}`,
       platform: provider,
       permission,
       resource,
       assignment: {
-        source: row.uno_sub_type[0] ?? row.provider_entity_type,
-        path: [row.name, row.uno_sub_type[0] ?? row.provider_entity_type, permission, resource],
+        source:
+          row.uno_sub_type[0] ??
+          row.provider_entity_sub_type ??
+          row.provider_entity_type,
+        path: [
+          displayName,
+          row.uno_sub_type[0] ?? row.provider_entity_sub_type ?? row.provider_entity_type,
+          permission,
+          resource,
+        ],
       },
     }));
 
     return {
       identityId: row._id,
-      displayName: row.name || row._id,
+      displayName,
       type: this.identityType(row),
       provider,
       grants,
     };
+  }
+
+  private resolveDisplayName(row: UnoEntityRow): string {
+    const composed = [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
+    if (composed) return composed;
+    if (row.email?.trim()) return row.email.trim();
+    if (row.name?.trim()) return row.name.trim();
+    if (row.external_identifier?.trim()) return row.external_identifier.trim();
+    return row._id;
   }
 
   private identityType(row: UnoEntityRow): AccessIdentityType {
@@ -269,6 +319,8 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
       'GITHUB-EMU': 'GitHub',
       KUBERNETES: 'Kubernetes',
       'HASHI-CORP': 'Vault',
+      'ACTIVE-DIRECTORY': 'Entra ID',
+      'GOOGLE-WORKSPACE': 'Google Workspace',
     };
     return names[normalized] ?? provider.trim();
   }

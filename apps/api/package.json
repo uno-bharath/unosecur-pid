@@ -12,7 +12,8 @@
     "clean": "rimraf dist",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:sync-clickhouse": "tsx prisma/sync-clickhouse-demo.ts"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.22.3",

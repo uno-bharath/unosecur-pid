@@ -766,6 +766,19 @@ aside nav b {
   padding: 1px 6px;
 }
 
+.live-refresh-pill {
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #fff !important;
+  display: inline-flex !important;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.live-refresh-pill.refreshing svg {
+  animation: spin 0.9s linear infinite;
+}
+
 .platform-icon {
   align-items: center;
   background: #fff;
@@ -958,6 +971,11 @@ aside nav b {
   align-items: center;
   display: flex;
   justify-content: space-between;
+}
+
+.page-path {
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
 }
 
 .page-header p,
@@ -1811,15 +1829,56 @@ kbd {
 .overview-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(480px, 1.5fr) minmax(280px, 0.7fr);
+  grid-template-columns: 1fr;
   margin-top: 16px;
 }
 
+.overview-rules {
+  width: 100%;
+}
+
 .executive-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   grid-column: 1 / -1;
+  min-height: 720px;
   min-width: 0;
   overflow: hidden;
   width: 100%;
+}
+
+.trend-analytics-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.window-analytics {
+  border-top: 1px solid #e2e8fb;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.window-analytics > div {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #e7ecf8;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.window-analytics span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.window-analytics strong {
+  font: 700 18px 'Manrope', sans-serif;
 }
 
 .content.view-overview {
@@ -1987,11 +2046,12 @@ kbd {
 }
 
 .trend-summary {
-  border-bottom: 1px solid #edf0f6;
-  border-top: 1px solid #edf0f6;
+  background: linear-gradient(180deg, #fbfcff, #f7f9fd);
+  border: 1px solid #edf0f6;
+  border-radius: 14px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  margin: 18px 0 10px;
+  margin: 0;
 }
 
 .trend-summary > div {
@@ -2026,9 +2086,14 @@ kbd {
 }
 
 .trend-chart-shell {
-  min-height: 320px;
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border: 1px solid #e8edf8;
+  border-radius: 16px;
+  flex: 1 1 auto;
+  min-height: 440px;
   min-width: 0;
   overflow: hidden;
+  padding: 8px 8px 4px;
   position: relative;
   width: 100%;
   transition: opacity 150ms ease;
@@ -2040,8 +2105,9 @@ kbd {
 
 .trend-chart-shell > svg {
   display: block;
-  height: 285px;
+  height: min(48vh, 460px);
   max-width: 100%;
+  min-height: 400px;
   overflow: hidden;
   width: 100%;
 }
@@ -2809,6 +2875,69 @@ h2 {
   color: var(--brand);
 }
 
+.path-direction-toggle {
+  background: #f3f5fa;
+  border-radius: 9px;
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+}
+
+.path-direction-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.path-direction-toggle button.active {
+  background: white;
+  box-shadow: 0 3px 10px rgba(37, 53, 95, 0.09);
+  color: var(--brand);
+}
+
+.copilot-query-hint {
+  background: #f5f8ff;
+  border: 1px dashed #c9d7fb;
+  border-radius: 10px;
+  color: #4d5f88;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+}
+
+.copilot-history {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.copilot-history-item {
+  background: #f8f9fc;
+  border: 1px solid #e7ebf4;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+.copilot-history-item strong {
+  color: var(--brand);
+  font-size: 11px;
+}
+
+.copilot-history-item span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .simulator {
   grid-column: 1 / -1;
 }
@@ -3263,30 +3392,42 @@ h2 {
   border-left: 1px solid var(--line);
   box-shadow: -20px 0 50px rgba(31, 46, 90, 0.16);
   bottom: 0;
-  height: calc(100dvh - var(--topbar-height));
-  max-height: calc(100dvh - var(--topbar-height));
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: auto;
   padding: 26px;
   pointer-events: none;
   position: fixed;
   right: 0;
-  top: var(--topbar-height);
+  top: 0;
   transform: translateX(105%);
   transition: transform 200ms ease;
   width: min(440px, 94vw);
-  z-index: 35;
+  z-index: 60;
 }
 
 .connector-backdrop {
-  background: rgba(11, 27, 58, 0.24);
+  background: rgba(11, 27, 58, 0.36);
   border: 0;
   bottom: 0;
   cursor: default;
   left: 0;
   position: fixed;
   right: 0;
-  top: var(--topbar-height);
-  z-index: 34;
+  top: 0;
+  z-index: 55;
+}
+
+.copilot-backdrop {
+  background: rgba(11, 27, 58, 0.22);
+  border: 0;
+  bottom: 0;
+  cursor: default;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 45;
 }
 
 .connector-drawer.open {
@@ -3489,7 +3630,7 @@ h2 {
   transform: translateY(16px) scale(0.98);
   transition: 180ms ease;
   width: 390px;
-  z-index: 19;
+  z-index: 50;
 }
 
 .copilot-drawer.open {
@@ -3785,7 +3926,8 @@ h2 {
   .pid-intelligence,
   .overview-quick-actions,
   .hotspot-grid,
-  .immunity-gain-grid {
+  .immunity-gain-grid,
+  .window-analytics {
     grid-template-columns: 1fr;
   }
   .pid-flow-graphic {
