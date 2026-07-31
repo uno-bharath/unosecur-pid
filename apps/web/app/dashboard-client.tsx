@@ -1440,7 +1440,7 @@ export default function DashboardClient() {
                         <small className="evidence-mode">
                           {coverage.evidenceMode === 'CONNECTED'
                             ? `Connected evidence · ${coverage.evidenceSource}`
-                            : 'Live demonstration evidence · production adapters use the same evaluation contract'}
+                            : 'Seeded evaluation evidence · connect an approved adapter to enable live synchronization'}
                         </small>
                       </div>
                       <div className="live-connector-pills">
@@ -2139,8 +2139,8 @@ export default function DashboardClient() {
               </div>
             )}
             <small>
-              Credentials are not collected in this demonstration. The production adapter stores
-              secrets in the organization vault and validates read-only access.
+              Credentials are stored only in the organization-approved secrets vault. PID validates
+              least-privilege, read-only access before enabling encrypted live synchronization.
             </small>
           </>
         )}
