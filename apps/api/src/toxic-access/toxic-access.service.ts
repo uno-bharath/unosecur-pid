@@ -32,8 +32,11 @@ export class ToxicAccessService {
     const rules = await this.getRules();
     return identities
       .map((identity) => this.toEvaluation(identity, this.engine.evaluate(identity, rules)))
-      .filter(({ conflicts }) => conflicts.length > 0)
-      .sort((left, right) => right.summary.critical - left.summary.critical);
+      .sort(
+        (left, right) =>
+          right.summary.critical - left.summary.critical ||
+          right.summary.total - left.summary.total,
+      );
   }
 
   async simulate(

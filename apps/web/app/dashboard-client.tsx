@@ -616,6 +616,7 @@ export default function DashboardClient() {
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('all');
   const [connectorPlatform, setConnectorPlatform] = useState<string | null>(null);
   const [connectorOnboardingStarted, setConnectorOnboardingStarted] = useState(false);
+  const [connectorValidationRequested, setConnectorValidationRequested] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [trendRange, setTrendRange] = useState(30);
   const [postureTrend, setPostureTrend] = useState<ExecutivePostureTrend | null>(null);
@@ -713,6 +714,11 @@ export default function DashboardClient() {
   }, [loadSummary]);
 
   useEffect(() => {
+    setConnectorOnboardingStarted(false);
+    setConnectorValidationRequested(false);
+  }, [connectorPlatform]);
+
+  useEffect(() => {
     void loadTrend();
   }, [loadTrend]);
 
@@ -748,12 +754,47 @@ export default function DashboardClient() {
     return () => window.removeEventListener('popstate', syncViewFromLocation);
   }, []);
 
+  const displayIdentities = useMemo<ToxicIdentity[]>(() => {
+    const seededById = new Map(summary?.topIdentities.map((identity) => [identity.id, identity]));
+    const connected = accessEvaluations.map((evaluation) => {
+      const seeded = seededById.get(evaluation.identityId);
+      if (seeded) return seeded;
+      const permissions = evaluation.conflicts.flatMap(({ evidence }) =>
+        evidence.map(({ permission }) => permission),
+      );
+      const path = evaluation.conflicts[0]?.evidence[0]?.accessPath ?? [];
+      return {
+        id: evaluation.identityId,
+        name: evaluation.displayName,
+        type: evaluation.identityType,
+        department: evaluation.provider,
+        riskScore: Math.min(100, evaluation.summary.critical * 25 + evaluation.summary.total * 10),
+        confidence: evaluation.conflicts.length > 0 ? 95 : 80,
+        platforms: evaluation.summary.affectedPlatforms.length
+          ? evaluation.summary.affectedPlatforms
+          : [evaluation.provider],
+        factors: [],
+        attackPath: path,
+        blastRadius: {
+          accounts: new Set(evaluation.summary.affectedPlatforms).size,
+          clusters: evaluation.provider === 'KUBERNETES' ? 1 : 0,
+          secrets: permissions.filter((permission) => /secret|key|token/i.test(permission)).length,
+          databases: permissions.filter((permission) => /database|sql|rds/i.test(permission))
+            .length,
+        },
+      };
+    });
+    if (coverage?.evidenceMode === 'CONNECTED') return connected;
+    const connectedIds = new Set(connected.map(({ id }) => id));
+    return [
+      ...connected,
+      ...(summary?.topIdentities.filter(({ id }) => !connectedIds.has(id)) ?? []),
+    ];
+  }, [accessEvaluations, coverage?.evidenceMode, summary]);
+
   const selectedIdentity = useMemo(
-    () =>
-      summary?.topIdentities.find(({ id }) => id === selectedId) ??
-      summary?.topIdentities[0] ??
-      null,
-    [selectedId, summary],
+    () => displayIdentities.find(({ id }) => id === selectedId) ?? displayIdentities[0] ?? null,
+    [displayIdentities, selectedId],
   );
   const selectedAccess = useMemo(
     () => accessEvaluations.find(({ identityId }) => identityId === selectedId) ?? null,
@@ -912,7 +953,7 @@ export default function DashboardClient() {
         },
         {
           label: 'Identities evaluated',
-          value: summary.identitiesScanned,
+          value: coverage?.identitiesObserved ?? displayIdentities.length,
           Icon: Activity,
           tone: 'neutral',
           target: 'identities' as WorkspaceView,
@@ -1352,7 +1393,7 @@ export default function DashboardClient() {
                           className="pid-chip identities"
                           onClick={() => selectWorkspaceView('identities')}
                         >
-                          <b>{summary.identitiesScanned}</b>
+                          <b>{coverage?.identitiesObserved ?? displayIdentities.length}</b>
                           <span>Identities</span>
                         </button>
                       </div>
@@ -1540,7 +1581,7 @@ export default function DashboardClient() {
                           <span>Critical</span>
                         </div>
                         <div>
-                          <b>{summary.identitiesScanned}</b>
+                          <b>{coverage?.identitiesObserved ?? displayIdentities.length}</b>
                           <span>Scanned</span>
                         </div>
                         <div>
@@ -1580,7 +1621,7 @@ export default function DashboardClient() {
                       </button>
                     </div>
                     <div className="hotspot-grid">
-                      {summary.topIdentities.slice(0, 4).map((identity) => {
+                      {displayIdentities.slice(0, 4).map((identity) => {
                         const evaluation = accessEvaluations.find(
                           ({ identityId }) => identityId === identity.id,
                         );
@@ -1652,7 +1693,7 @@ export default function DashboardClient() {
                       </button>
                     ))}
                   </div>
-                  {summary.topIdentities
+                  {displayIdentities
                     .filter((identity) =>
                       visibleIdentities.some(
                         ({ identityId, conflicts }) =>
@@ -2125,16 +2166,57 @@ export default function DashboardClient() {
               onClick={() => setConnectorOnboardingStarted(true)}
             >
               {connectorOnboardingStarted ? <Check size={16} /> : <Settings size={16} />}
-              {connectorOnboardingStarted
-                ? 'Onboarding checklist activated'
-                : 'Start secure onboarding'}
+              {connectorOnboardingStarted ? 'Connection form opened' : 'Configure connection'}
             </button>
             {connectorOnboardingStarted && (
+              <form
+                className="connector-configuration-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setConnectorValidationRequested(true);
+                }}
+              >
+                <div className="connector-form-heading">
+                  <strong>Secure connection details</strong>
+                  <span>Required values are masked and prepared for vault-backed validation.</span>
+                </div>
+                {selectedConnector.requirements.map((requirement) => {
+                  const secretField = /secret|password|private key|token|certificate|json/i.test(
+                    requirement,
+                  );
+                  return (
+                    <label key={`field-${requirement}`}>
+                      <span>{requirement}</span>
+                      {/json|certificate/i.test(requirement) ? (
+                        <textarea
+                          aria-label={requirement}
+                          placeholder={`Enter ${requirement.toLowerCase()}`}
+                          required
+                          rows={3}
+                        />
+                      ) : (
+                        <input
+                          aria-label={requirement}
+                          autoComplete="off"
+                          placeholder={`Enter ${requirement.toLowerCase()}`}
+                          required
+                          type={secretField ? 'password' : 'text'}
+                        />
+                      )}
+                    </label>
+                  );
+                })}
+                <button className="connector-validate" type="submit">
+                  <ShieldCheck size={15} /> Validate read-only connection
+                </button>
+              </form>
+            )}
+            {connectorValidationRequested && (
               <div className="connector-onboarding-notice">
-                <strong>Ready for connection validation</strong>
+                <strong>Connection request prepared</strong>
                 <span>
-                  Add the required values to local secret storage, then run a read-only connection
-                  test. Credentials are never submitted through this browser panel.
+                  The adapter must send these values to the organization vault before the live
+                  validation job can run. Browser-only storage is intentionally disabled.
                 </span>
               </div>
             )}

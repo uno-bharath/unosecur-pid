@@ -56,7 +56,9 @@ export class ToxicAccessController {
   }
 
   @Get('identities')
-  @ApiOperation({ summary: 'List identities with deterministic entitlement conflicts' })
+  @ApiOperation({
+    summary: 'List all evaluated identities and deterministic entitlement conflicts',
+  })
   listConflictedIdentities(): Promise<ToxicAccessEvaluation[]> {
     return this.toxicAccessService.listConflictedIdentities();
   }
