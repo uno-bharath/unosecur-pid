@@ -181,6 +181,43 @@ const connectorGuides: Record<
   },
 };
 
+const platformLogoFiles: Record<string, string> = {
+  AWS: 'aws.svg',
+  AMAZON: 'aws.svg',
+  GCP: 'gcp.svg',
+  GOOGLE: 'gcp.svg',
+  'GOOGLE CLOUD': 'gcp.svg',
+  AZURE: 'azure.svg',
+  ENTRA: 'azure.svg',
+  MICROSOFT: 'azure.svg',
+  GITHUB: 'github.svg',
+  KUBERNETES: 'kubernetes.svg',
+  K8S: 'kubernetes.svg',
+  VAULT: 'vault.svg',
+  HASHICORP: 'vault.svg',
+  OKTA: 'okta.svg',
+};
+
+function platformLogoSrc(platform: string): string {
+  const key = platform.trim().toUpperCase();
+  const file = platformLogoFiles[key] ?? 'cloud.svg';
+  return `/connectors/${file}`;
+}
+
+function PlatformLogo({ platform, size = 18 }: { platform: string; size?: number }) {
+  return (
+    <img
+      src={platformLogoSrc(platform)}
+      alt=""
+      aria-hidden
+      className="platform-logo"
+      width={size}
+      height={size}
+      title={platform}
+    />
+  );
+}
+
 const workspaceCopy: Record<
   WorkspaceView,
   { eyebrow: string; title: string; description: string }
@@ -870,7 +907,7 @@ export default function DashboardClient() {
                             }}
                           >
                             <span className="pid-platform-icon">
-                              <Cloud size={16} />
+                              <PlatformLogo platform={platform} size={18} />
                             </span>
                             <span className="pid-platform-copy">
                               <strong>{platform}</strong>
@@ -1481,7 +1518,9 @@ export default function DashboardClient() {
                     key={platform}
                     onClick={() => setConnectorPlatform(platform)}
                   >
-                    <Cloud size={19} />
+                    <span className="coverage-logo">
+                      <PlatformLogo platform={platform} size={22} />
+                    </span>
                     <strong>{platform}</strong>
                     <span>
                       {conflicts > 0 ? `${conflicts} matched conflicts` : 'Ready to configure'}
@@ -1507,9 +1546,16 @@ export default function DashboardClient() {
         {selectedConnector && (
           <>
             <div className="connector-header">
-              <div>
-                <p>ADAPTER CONFIGURATION</p>
-                <h2>{selectedConnector.title}</h2>
+              <div className="connector-heading">
+                {connectorPlatform && (
+                  <span className="connector-logo">
+                    <PlatformLogo platform={connectorPlatform} size={28} />
+                  </span>
+                )}
+                <div>
+                  <p>ADAPTER CONFIGURATION</p>
+                  <h2>{selectedConnector.title}</h2>
+                </div>
               </div>
               <button
                 aria-label="Close connector details"

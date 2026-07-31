@@ -678,7 +678,28 @@ aside nav b {
   transform: translateY(-1px);
 }
 
-.coverage-item svg {
+.coverage-logo {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e4eaf8;
+  border-radius: 10px;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  margin-bottom: 4px;
+  width: 40px;
+}
+
+.platform-logo {
+  display: block;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  width: auto;
+}
+
+.coverage-item svg.coverage-settings,
+.coverage-item .coverage-settings {
   color: var(--brand);
 }
 
@@ -1132,18 +1153,24 @@ kbd {
 
 .pid-platform-icon {
   align-items: center;
-  background: var(--brand-soft);
+  background: #fff;
+  border: 1px solid #e4eaf8;
   border-radius: 9px;
   color: var(--brand);
   display: inline-flex;
   height: 34px;
   justify-content: center;
+  overflow: hidden;
   width: 34px;
 }
 
+.pid-platform-icon .platform-logo {
+  height: 18px;
+  width: 18px;
+}
+
 .pid-integration-card.has-risk .pid-platform-icon {
-  background: #ffe7ec;
-  color: var(--critical);
+  border-color: #f3b3c0;
 }
 
 .pid-platform-copy {
@@ -2875,6 +2902,24 @@ h2 {
   justify-content: space-between;
   margin-bottom: 20px;
   padding-bottom: 18px;
+}
+
+.connector-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.connector-logo {
+  align-items: center;
+  background: #f7f9ff;
+  border: 1px solid #e4eaf8;
+  border-radius: 12px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
 }
 
 .connector-header p {
