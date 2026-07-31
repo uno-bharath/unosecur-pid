@@ -751,6 +751,15 @@ export default function DashboardClient() {
   }, [connectorPlatform]);
 
   useEffect(() => {
+    if (!connectorPlatform) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setConnectorPlatform(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [connectorPlatform]);
+
+  useEffect(() => {
     void loadTrend();
   }, [loadTrend]);
 
@@ -1341,13 +1350,6 @@ export default function DashboardClient() {
                     <div className="pid-integrations">
                       <div className="pid-section-heading">
                         <h3>Platform coverage</h3>
-                        <button
-                          type="button"
-                          className="text-link"
-                          onClick={() => selectWorkspaceView('coverage')}
-                        >
-                          Manage <ChevronRight size={14} />
-                        </button>
                       </div>
                       <div className="pid-integration-list">
                         {platformConflictCounts
@@ -1451,53 +1453,6 @@ export default function DashboardClient() {
                       </div>
                     </div>
                   </section>
-
-                  <div className="overview-quick-actions" aria-label="Quick actions">
-                    {[
-                      {
-                        label: 'Rule findings',
-                        hint: 'Review toxic combinations',
-                        Icon: ShieldAlert,
-                        action: () => selectWorkspaceView('conflicts'),
-                      },
-                      {
-                        label: 'Attack paths',
-                        hint: 'Simulate privilege removal',
-                        Icon: GitBranch,
-                        action: () => selectWorkspaceView('attack-paths'),
-                      },
-                      {
-                        label: 'Rule builder',
-                        hint: 'Author custom toxic rules',
-                        Icon: SlidersHorizontal,
-                        action: () => selectWorkspaceView('rule-builder'),
-                      },
-                      {
-                        label: 'Refresh live',
-                        hint: refreshing ? 'Updating evidence…' : 'Pull latest evaluation',
-                        Icon: RefreshCw,
-                        action: () => void refreshLiveData(),
-                        spinning: refreshing,
-                      },
-                    ].map(({ label, hint, Icon: ActionIcon, action, spinning }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        className={`overview-action-card ${spinning ? 'spinning' : ''}`}
-                        onClick={action}
-                        disabled={Boolean(spinning)}
-                      >
-                        <span className="overview-action-icon">
-                          <ActionIcon size={18} />
-                        </span>
-                        <span>
-                          <strong>{label}</strong>
-                          <small>{hint}</small>
-                        </span>
-                        <ChevronRight size={16} />
-                      </button>
-                    ))}
-                  </div>
 
                   {coverage && (
                     <section className="live-intelligence-strip">
@@ -2154,6 +2109,15 @@ export default function DashboardClient() {
           )}
         </section>
       </div>
+
+      {selectedConnector && (
+        <button
+          aria-label="Close connector details"
+          className="connector-backdrop"
+          onClick={() => setConnectorPlatform(null)}
+          type="button"
+        />
+      )}
 
       <section
         aria-hidden={!selectedConnector}

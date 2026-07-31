@@ -39,12 +39,20 @@ const environmentSchema = z.object({
     .default('unosecur_organization_replace_tenant_uno_id'),
   CLICKHOUSE_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
   CLICKHOUSE_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(15),
+  KUBERNETES_ENABLED: environmentBoolean.default(false),
+  KUBERNETES_CONTEXT_DISCOVERY: environmentBoolean.default(true),
+  KUBERNETES_KUBECONFIG: z.string().default(''),
+  KUBERNETES_CONTEXTS: z.string().default(''),
+  KUBERNETES_INCLUDE_NAMESPACES: z.string().default(''),
+  KUBERNETES_ALLOW_PRODUCTION: environmentBoolean.default(false),
+  KUBERNETES_RESOURCE_LIMIT: z.coerce.number().int().positive().default(5000),
 });
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['../../.env', '.env'],
       validate: (config) => environmentSchema.parse(config),
     }),
     ToxicAccessModule,

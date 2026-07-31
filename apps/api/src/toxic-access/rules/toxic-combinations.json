@@ -373,5 +373,85 @@
       "mitre": ["T1195.002 Compromise Software Supply Chain"],
       "nist": ["CM-5 Access Restrictions for Change", "AC-5 Separation of Duties"]
     }
+  },
+  {
+    "id": "PID-AWS-ADMIN-ESC-001",
+    "title": "Unrestricted AWS administration and role delegation",
+    "description": "An identity has unrestricted AWS authority together with the ability to delegate or assume privileged roles.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "critical",
+    "businessImpact": "The identity can create durable privilege paths, impersonate workloads, and take control of protected AWS resources without an independent approval boundary.",
+    "remediation": "Replace AdministratorAccess with task-scoped policies, constrain PassRole and AssumeRole resources, and require JIT approval for privileged sessions.",
+    "requirements": [
+      {
+        "id": "unrestricted-administration",
+        "platform": "AWS",
+        "anyPermissions": ["aws:AdministratorAccess", "aws:*"]
+      },
+      {
+        "id": "role-delegation",
+        "platform": "AWS",
+        "anyPermissions": ["iam:PassRole", "sts:AssumeRole"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1078.004 Cloud Accounts", "T1098.003 Additional Cloud Roles"],
+      "nist": ["AC-6 Least Privilege", "AC-5 Separation of Duties"]
+    }
+  },
+  {
+    "id": "PID-AWS-ADMIN-AUDIT-001",
+    "title": "AWS administrative action with audit suppression",
+    "description": "An identity can perform unrestricted cloud changes and disable or delete the audit trail needed to investigate them.",
+    "category": "SEGREGATION_OF_DUTIES",
+    "severity": "critical",
+    "businessImpact": "A compromised administrator can change production resources while suppressing evidence and extending attacker dwell time.",
+    "remediation": "Isolate audit administration in a security account, deny audit shutdown through SCPs, and use immutable cross-account log retention.",
+    "requirements": [
+      {
+        "id": "unrestricted-administration",
+        "platform": "AWS",
+        "anyPermissions": ["aws:AdministratorAccess", "aws:*"]
+      },
+      {
+        "id": "audit-suppression",
+        "platform": "AWS",
+        "anyPermissions": ["cloudtrail:StopLogging", "cloudtrail:DeleteTrail"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1562.008 Disable Cloud Logs", "T1070 Indicator Removal"],
+      "nist": ["AU-9 Protection of Audit Information", "AC-6 Least Privilege"]
+    }
+  },
+  {
+    "id": "PID-K8S-ADMIN-001",
+    "title": "Kubernetes cluster administration and secret-to-workload pivot",
+    "description": "A subject can administer cluster RBAC, read secrets, and create workloads in the same control plane.",
+    "category": "CROSS_PLATFORM_CONTROL",
+    "severity": "critical",
+    "businessImpact": "Compromise enables cluster-wide privilege escalation, credential theft, persistent workload deployment, and lateral movement to connected cloud resources.",
+    "remediation": "Remove standing cluster-admin, separate RBAC from workload deployment, scope secret access by namespace, and require time-bound elevation.",
+    "requirements": [
+      {
+        "id": "cluster-control",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:cluster-admin", "k8s:rbac:wildcard"]
+      },
+      {
+        "id": "secret-access",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:secrets:read"]
+      },
+      {
+        "id": "workload-creation",
+        "platform": "Kubernetes",
+        "anyPermissions": ["k8s:pods:create", "k8s:deployments:create"]
+      }
+    ],
+    "mappings": {
+      "mitre": ["T1610 Deploy Container", "T1552.007 Container API"],
+      "nist": ["AC-6 Least Privilege", "AC-5 Separation of Duties"]
+    }
   }
 ]

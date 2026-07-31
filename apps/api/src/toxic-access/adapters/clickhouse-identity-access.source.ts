@@ -9,6 +9,7 @@ import { IdentityAccessSource } from '../ports/identity-access-source';
 
 interface UnoEntityRow {
   _id: string;
+  correlation_uno_id: string | null;
   name: string;
   uno_type: string | null;
   provider_entity_type: string;
@@ -62,6 +63,7 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
     const rows = await this.query<UnoEntityRow>(`
       SELECT
         _id,
+        correlation_uno_id,
         name,
         uno_type,
         provider_entity_type,
@@ -78,7 +80,22 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
       FORMAT JSONEachRow
     `);
 
-    return rows.map((row) => this.toSnapshot(row));
+    const snapshots = rows.map((row) => ({
+      correlationId: row.correlation_uno_id,
+      snapshot: this.toSnapshot(row),
+    }));
+    const merged = new Map<string, IdentityAccessSnapshot>();
+    for (const { correlationId, snapshot } of snapshots) {
+      const key = correlationId || snapshot.identityId;
+      const current = merged.get(key);
+      if (!current) {
+        merged.set(key, { ...snapshot, identityId: key });
+        continue;
+      }
+      current.grants.push(...snapshot.grants);
+      if (current.provider !== snapshot.provider) current.provider = 'MULTI_PLATFORM';
+    }
+    return [...merged.values()];
   }
 
   private async query<T>(query: string): Promise<T[]> {
@@ -112,11 +129,9 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
   }
 
   private toSnapshot(row: UnoEntityRow): IdentityAccessSnapshot {
-    const provider = (
-      row.source ||
-      row.provider_entity_type.split(' - ')[0] ||
-      'UNKNOWN'
-    ).toUpperCase();
+    const provider = this.canonicalProvider(
+      row.source || row.provider_entity_type.split(' - ')[0] || 'UNKNOWN',
+    );
     const details = this.parseJson(row.details);
     const attributes = this.parseJson(row.attributes);
     const resource =
@@ -128,7 +143,7 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
     const permissions = [
       ...new Set(
         permissionValues
-          .map((value) => this.normalizePermission(provider, value))
+          .flatMap((value) => this.normalizePermissions(provider, value))
           .filter((value) => value.length > 0),
       ),
     ];
@@ -198,12 +213,63 @@ export class ClickHouseIdentityAccessSource extends IdentityAccessSource {
     return null;
   }
 
-  private normalizePermission(provider: string, value: string): string {
+  private normalizePermissions(provider: string, value: string): string[] {
     const permission = value.trim();
+    if (!permission || this.isOpaqueIdentifier(permission)) return [];
     if (provider === 'AWS') {
       const policyName = permission.includes('/') ? permission.split('/').pop() : permission;
-      if (policyName === 'AdministratorAccess') return 'aws:AdministratorAccess';
+      if (policyName === 'AdministratorAccess' || permission === '*' || permission === '*:*') {
+        return [
+          'aws:AdministratorAccess',
+          'aws:*',
+          'iam:PassRole',
+          'iam:CreateAccessKey',
+          'iam:CreatePolicyVersion',
+          'sts:AssumeRole',
+          'cloudtrail:StopLogging',
+          'cloudtrail:DeleteTrail',
+          's3:GetObject',
+          's3:PutObject',
+          's3:DeleteObject',
+          'kms:CreateKey',
+          'kms:Encrypt',
+          'kms:Decrypt',
+          'kms:ScheduleKeyDeletion',
+        ];
+      }
+      const serviceWildcard = permission.match(/^([a-z0-9-]+):\*$/i);
+      if (serviceWildcard) return [permission, ...this.expandAwsService(serviceWildcard[1])];
     }
-    return permission;
+    return [permission];
+  }
+
+  private expandAwsService(service: string): string[] {
+    const expansions: Record<string, string[]> = {
+      iam: ['iam:PassRole', 'iam:CreateAccessKey', 'iam:CreatePolicyVersion'],
+      sts: ['sts:AssumeRole'],
+      cloudtrail: ['cloudtrail:StopLogging', 'cloudtrail:DeleteTrail'],
+      s3: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
+      kms: ['kms:CreateKey', 'kms:Encrypt', 'kms:Decrypt', 'kms:ScheduleKeyDeletion'],
+    };
+    return expansions[service.toLowerCase()] ?? [];
+  }
+
+  private isOpaqueIdentifier(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) || /^[0-9a-f]{32,}$/i.test(value);
+  }
+
+  private canonicalProvider(provider: string): string {
+    const normalized = provider.trim().toUpperCase();
+    const names: Record<string, string> = {
+      AWS: 'AWS',
+      GCP: 'GCP',
+      AZURE: 'Azure',
+      ENTRA: 'Entra ID',
+      GITHUB: 'GitHub',
+      'GITHUB-EMU': 'GitHub',
+      KUBERNETES: 'Kubernetes',
+      'HASHI-CORP': 'Vault',
+    };
+    return names[normalized] ?? provider.trim();
   }
 }

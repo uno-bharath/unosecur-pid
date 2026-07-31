@@ -68,6 +68,7 @@ button {
 
 .topbar-brand {
   align-items: center;
+  background: var(--topbar);
   display: flex;
   flex-shrink: 0;
   gap: 0;
@@ -75,6 +76,7 @@ button {
 }
 
 .topbar-logo-image {
+  background: transparent;
   display: block;
   height: 34px;
   object-fit: contain;
@@ -1814,9 +1816,14 @@ kbd {
 }
 
 .executive-trend {
+  grid-column: 1 / -1;
   min-width: 0;
   overflow: hidden;
   width: 100%;
+}
+
+.content.view-overview {
+  max-width: none;
 }
 
 .executive-trend-header {
@@ -3268,6 +3275,18 @@ h2 {
   transition: transform 200ms ease;
   width: min(440px, 94vw);
   z-index: 35;
+}
+
+.connector-backdrop {
+  background: rgba(11, 27, 58, 0.24);
+  border: 0;
+  bottom: 0;
+  cursor: default;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: var(--topbar-height);
+  z-index: 34;
 }
 
 .connector-drawer.open {
