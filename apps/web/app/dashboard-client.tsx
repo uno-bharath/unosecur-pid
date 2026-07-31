@@ -4,23 +4,47 @@ import {
   Activity,
   Bell,
   Bot,
+  Boxes,
   Check,
   ChevronRight,
   Cloud,
+  Database,
   GitBranch,
   LoaderCircle,
+  KeyRound,
   RefreshCw,
+  Radio,
   Search,
   Send,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Users,
+  Workflow,
   X,
   Zap,
 } from 'lucide-react';
+import { FaAws, FaMicrosoft, FaSlack } from 'react-icons/fa';
+import {
+  SiArgo,
+  SiCloudflare,
+  SiGithub,
+  SiGitlab,
+  SiGoogle,
+  SiGooglecloud,
+  SiJenkins,
+  SiKubernetes,
+  SiOkta,
+  SiPostgresql,
+  SiSnowflake,
+  SiVault,
+} from 'react-icons/si';
+import type { IconType } from 'react-icons';
+import { VscAzure } from 'react-icons/vsc';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { AttackPathGraph } from './components/attack-path-graph';
 import { ExecutivePostureTrend, ExecutiveTrendChart } from './components/executive-trend-chart';
 import { VisualRuleBuilder } from './components/visual-rule-builder';
@@ -103,9 +127,58 @@ interface ToxicAccessSimulation {
   currentConflictCount: number;
   projectedConflictCount: number;
   removedPermissions: string[];
+  removedAssignments: string[];
   resolvedConflicts: string[];
   remainingConflicts: string[];
   preservedGrantCount: number;
+  businessAccessPreservedPercent: number;
+  riskReductionPercent: number;
+  resolvedCriticalConflicts: number;
+  resolvedHighConflicts: number;
+  attackPathsDisrupted: number;
+  protectedResources: string[];
+  controlsImproved: string[];
+  affectedPlatformsBefore: string[];
+  affectedPlatformsAfter: string[];
+  residualSeverity: Severity | 'none';
+  securityOutcomes: string[];
+}
+
+interface RealtimeCoverageSummary {
+  evaluatedAt: string;
+  evidenceMode: 'DEMONSTRATION' | 'CONNECTED';
+  evidenceSource: string;
+  refreshIntervalSeconds: number;
+  connectedPlatforms: number;
+  availablePlatforms: number;
+  identitiesObserved: number;
+  entitlementsObserved: number;
+  activeConflicts: number;
+  connectors: Array<{
+    id: string;
+    platform: string;
+    domain: string;
+    status: 'CONNECTED' | 'READY_TO_CONNECT';
+    syncMode: string;
+    identities: number;
+    entitlements: number;
+    conflicts: number;
+    criticalConflicts: number;
+    evaluatedAt: string;
+    dataSource: string;
+  }>;
+  recentEntitlementEvents: Array<{
+    id: string;
+    observedAt: string;
+    platform: string;
+    identityId: string;
+    displayName: string;
+    identityType: 'HUMAN' | 'SERVICE_ACCOUNT' | 'WORKLOAD';
+    permission: string;
+    resource: string;
+    assignment: string;
+    createsConflict: boolean;
+  }>;
 }
 
 interface CopilotAnswer {
@@ -125,14 +198,73 @@ function identityTypeLabel(type?: string): string {
   return type === 'HUMAN' || type === 'Human' ? 'User' : 'NHI';
 }
 
+type PlatformIconComponent = IconType | typeof Cloud;
+
+const platformIcons: Record<string, { Icon: PlatformIconComponent; color: string }> = {
+  AWS: { Icon: FaAws, color: '#ff9900' },
+  GCP: { Icon: SiGooglecloud, color: '#4285f4' },
+  AZURE: { Icon: VscAzure, color: '#0078d4' },
+  GITHUB: { Icon: SiGithub, color: '#24292f' },
+  KUBERNETES: { Icon: SiKubernetes, color: '#326ce5' },
+  'ENTRA ID': { Icon: FaMicrosoft, color: '#2563eb' },
+  OKTA: { Icon: SiOkta, color: '#1662dd' },
+  GITLAB: { Icon: SiGitlab, color: '#fc6d26' },
+  JENKINS: { Icon: SiJenkins, color: '#d33833' },
+  ARGOCD: { Icon: SiArgo, color: '#ef7b4d' },
+  VAULT: { Icon: SiVault, color: '#111827' },
+  POSTGRESQL: { Icon: SiPostgresql, color: '#4169e1' },
+  SNOWFLAKE: { Icon: SiSnowflake, color: '#29b5e8' },
+  'GOOGLE WORKSPACE': { Icon: SiGoogle, color: '#4285f4' },
+  'MICROSOFT 365': { Icon: FaMicrosoft, color: '#f25022' },
+  SERVICENOW: { Icon: Workflow, color: '#2e8b57' },
+  SLACK: { Icon: FaSlack, color: '#611f69' },
+  CLOUDFLARE: { Icon: SiCloudflare, color: '#f38020' },
+};
+
+function PlatformIcon({ platform, compact = false }: { platform: string; compact?: boolean }) {
+  const normalized = platform.toUpperCase();
+  const fallback =
+    connectorGuides[normalized]?.category === 'Data'
+      ? Database
+      : connectorGuides[normalized]?.category === 'Secrets'
+        ? KeyRound
+        : connectorGuides[normalized]?.category === 'Supply chain'
+          ? Boxes
+          : Cloud;
+  const { Icon, color } = platformIcons[normalized] ?? { Icon: fallback, color: '#315ddd' };
+
+  return (
+    <span
+      className={`platform-icon ${compact ? 'compact' : ''}`}
+      style={{ '--platform-color': color } as CSSProperties}
+      aria-hidden="true"
+    >
+      <Icon size={compact ? 14 : 19} />
+    </span>
+  );
+}
+
 const connectorGuides: Record<
   string,
-  { title: string; description: string; requirements: string[]; steps: string[] }
+  {
+    title: string;
+    description: string;
+    category: 'Cloud' | 'Identity' | 'Kubernetes' | 'Supply chain' | 'Secrets' | 'Data' | 'SaaS';
+    requirements: string[];
+    evidence: string[];
+    steps: string[];
+  }
 > = {
   AWS: {
     title: 'AWS IAM adapter',
     description: 'Collect effective IAM grants, role trust and resource access across accounts.',
+    category: 'Cloud',
     requirements: ['AWS account ID', 'Read-only cross-account IAM role', 'External ID'],
+    evidence: [
+      'Users, roles and policies',
+      'Trust and assume-role paths',
+      'Resource-scoped permissions',
+    ],
     steps: [
       'Create the UnoSecur read-only discovery role from the provided policy.',
       'Add the PID collector account to the role trust policy with an External ID.',
@@ -142,7 +274,13 @@ const connectorGuides: Record<
   GCP: {
     title: 'Google Cloud IAM adapter',
     description: 'Resolve principals, groups, service accounts and inherited project permissions.',
+    category: 'Cloud',
     requirements: ['Organization or project ID', 'Service account JSON', 'Cloud Asset Viewer role'],
+    evidence: [
+      'Users, groups and service accounts',
+      'Organization, folder and project IAM',
+      'Workload identity bindings',
+    ],
     steps: [
       'Create a dedicated service account for permission discovery.',
       'Grant Cloud Asset Viewer and Organization Viewer at the required scope.',
@@ -152,7 +290,9 @@ const connectorGuides: Record<
   AZURE: {
     title: 'Azure / Entra adapter',
     description: 'Discover Entra identities and effective Azure RBAC assignments.',
+    category: 'Cloud',
     requirements: ['Tenant ID', 'Client ID', 'Client secret or certificate', 'Reader permissions'],
+    evidence: ['Azure RBAC assignments', 'Management-group inheritance', 'Managed identities'],
     steps: [
       'Register an Entra application for PID discovery.',
       'Grant directory read and Azure subscription Reader permissions.',
@@ -162,7 +302,13 @@ const connectorGuides: Record<
   GITHUB: {
     title: 'GitHub adapter',
     description: 'Evaluate organization roles, repository administration and Actions access.',
+    category: 'Supply chain',
     requirements: ['GitHub organization', 'GitHub App ID', 'Private key'],
+    evidence: [
+      'Organization and repository roles',
+      'Actions and environment access',
+      'Teams and deploy keys',
+    ],
     steps: [
       'Create a GitHub App with read-only organization and repository permissions.',
       'Install it on the organizations and repositories in scope.',
@@ -172,11 +318,239 @@ const connectorGuides: Record<
   KUBERNETES: {
     title: 'Kubernetes RBAC adapter',
     description: 'Resolve subjects, bindings, service accounts and effective cluster permissions.',
-    requirements: ['Cluster endpoint', 'Read-only service account token', 'CA certificate'],
+    category: 'Kubernetes',
+    requirements: [
+      'Approved kubeconfig contexts or in-cluster identity',
+      'Read-only RBAC',
+      'Namespace allowlist',
+    ],
+    evidence: [
+      'Roles, ClusterRoles and bindings',
+      'Service accounts and workloads',
+      'Pod security and identity federation',
+    ],
     steps: [
-      'Apply the PID discovery ClusterRole and ServiceAccount manifest.',
-      'Provide the API endpoint, token and certificate authority data.',
-      'Test access and enable the RBAC synchronization interval.',
+      'Discover contexts from kubeconfig and explicitly select approved clusters.',
+      'Apply the PID read-only ClusterRole and bind the collection identity.',
+      'Select namespaces, validate metadata access and enable watch-based updates.',
+    ],
+  },
+  'ENTRA ID': {
+    title: 'Microsoft Entra ID adapter',
+    description: 'Correlate users, groups, applications, service principals and directory roles.',
+    category: 'Identity',
+    requirements: [
+      'Tenant ID',
+      'Application ID',
+      'Certificate or vault reference',
+      'Directory read permissions',
+    ],
+    evidence: [
+      'Directory roles and groups',
+      'Service principals and app roles',
+      'Conditional-access context',
+    ],
+    steps: [
+      'Register a read-only Entra application.',
+      'Approve minimum Microsoft Graph permissions.',
+      'Validate tenant scope and enable incremental synchronization.',
+    ],
+  },
+  OKTA: {
+    title: 'Okta workforce identity adapter',
+    description: 'Evaluate administrators, groups, applications and lifecycle privileges.',
+    category: 'Identity',
+    requirements: ['Okta organization URL', 'OAuth service application', 'Read-only scopes'],
+    evidence: [
+      'Admins and groups',
+      'Application assignments',
+      'Lifecycle and policy administration',
+    ],
+    steps: [
+      'Create an OAuth service application.',
+      'Grant read-only management scopes.',
+      'Validate organization access and enable system-log updates.',
+    ],
+  },
+  GITLAB: {
+    title: 'GitLab supply-chain adapter',
+    description: 'Discover group, project, runner, environment and pipeline-control privileges.',
+    category: 'Supply chain',
+    requirements: ['GitLab URL', 'OAuth application or project token', 'Read API scope'],
+    evidence: [
+      'Group and project roles',
+      'Protected branches and environments',
+      'Runner and pipeline privileges',
+    ],
+    steps: [
+      'Create a read-only integration identity.',
+      'Select groups and projects in scope.',
+      'Test API access and enable audit-event collection.',
+    ],
+  },
+  JENKINS: {
+    title: 'Jenkins supply-chain adapter',
+    description: 'Map administrative, credential, job and deployment permissions.',
+    category: 'Supply chain',
+    requirements: ['Jenkins URL', 'Read-only service identity', 'Authorization strategy access'],
+    evidence: [
+      'Global and folder permissions',
+      'Job and credential use',
+      'Deployment control paths',
+    ],
+    steps: [
+      'Create a dedicated read-only identity.',
+      'Approve metadata access without credential-value access.',
+      'Validate folders and enable scheduled synchronization.',
+    ],
+  },
+  ARGOCD: {
+    title: 'Argo CD deployment adapter',
+    description: 'Correlate project RBAC, cluster destinations and production deployment control.',
+    category: 'Supply chain',
+    requirements: ['Argo CD URL', 'Read-only token', 'Project and application scope'],
+    evidence: ['Projects and applications', 'RBAC policies', 'Cluster and namespace destinations'],
+    steps: [
+      'Create a read-only Argo CD role.',
+      'Select approved projects.',
+      'Validate application and destination discovery.',
+    ],
+  },
+  VAULT: {
+    title: 'HashiCorp Vault adapter',
+    description: 'Identify policies and identities able to read, generate or administer secrets.',
+    category: 'Secrets',
+    requirements: [
+      'Vault address',
+      'Read-only AppRole or Kubernetes auth',
+      'Namespace when applicable',
+    ],
+    evidence: [
+      'Entities, groups and policies',
+      'Auth-method administration',
+      'Secret-engine control paths',
+    ],
+    steps: [
+      'Create a metadata-only policy.',
+      'Authenticate through AppRole or workload identity.',
+      'Validate namespace scope without reading secret values.',
+    ],
+  },
+  POSTGRESQL: {
+    title: 'PostgreSQL entitlement adapter',
+    description: 'Map database roles, memberships, ownership and export-capable privileges.',
+    category: 'Data',
+    requirements: ['Database endpoint', 'TLS configuration', 'Catalog-only read account'],
+    evidence: [
+      'Roles and memberships',
+      'Schema and table privileges',
+      'Ownership and replication rights',
+    ],
+    steps: [
+      'Create a catalog-only monitoring user.',
+      'Select databases and schemas.',
+      'Validate metadata access and enable scheduled synchronization.',
+    ],
+  },
+  SNOWFLAKE: {
+    title: 'Snowflake entitlement adapter',
+    description: 'Resolve users, roles, warehouses, sensitive objects and data-sharing privileges.',
+    category: 'Data',
+    requirements: ['Account identifier', 'Key-pair service user', 'Monitoring role'],
+    evidence: [
+      'Role hierarchy',
+      'Database and warehouse grants',
+      'Sharing and account administration',
+    ],
+    steps: [
+      'Create a key-pair monitoring user.',
+      'Grant approved metadata views.',
+      'Validate account scope and schedule synchronization.',
+    ],
+  },
+  'GOOGLE WORKSPACE': {
+    title: 'Google Workspace identity adapter',
+    description: 'Evaluate administrators, groups, applications and external-sharing controls.',
+    category: 'SaaS',
+    requirements: [
+      'Workspace customer ID',
+      'Domain-wide delegated service identity',
+      'Read-only Admin SDK scopes',
+    ],
+    evidence: ['Admin roles and groups', 'Application access', 'External sharing administration'],
+    steps: [
+      'Create a dedicated delegated identity.',
+      'Approve minimum read-only scopes.',
+      'Validate domains and enable incremental updates.',
+    ],
+  },
+  'MICROSOFT 365': {
+    title: 'Microsoft 365 adapter',
+    description: 'Correlate collaboration, messaging and tenant-administration privileges.',
+    category: 'SaaS',
+    requirements: ['Tenant ID', 'Application certificate', 'Approved Graph read scopes'],
+    evidence: [
+      'Administrative roles',
+      'SharePoint and Teams control',
+      'Exchange and data-export privileges',
+    ],
+    steps: [
+      'Register a certificate-based application.',
+      'Approve minimum read scopes.',
+      'Select workloads and enable audit synchronization.',
+    ],
+  },
+  SERVICENOW: {
+    title: 'ServiceNow governance adapter',
+    description:
+      'Map elevated platform roles, approval authority and workflow-administration access.',
+    category: 'SaaS',
+    requirements: ['Instance URL', 'OAuth client', 'Read-only integration role'],
+    evidence: [
+      'Users, groups and roles',
+      'Approval authority',
+      'Workflow and integration administration',
+    ],
+    steps: [
+      'Create an OAuth integration.',
+      'Assign approved table-read roles.',
+      'Validate scoped APIs and enable synchronization.',
+    ],
+  },
+  SLACK: {
+    title: 'Slack enterprise adapter',
+    description: 'Discover organization administration, app management and export capabilities.',
+    category: 'SaaS',
+    requirements: [
+      'Enterprise organization',
+      'Admin-approved OAuth application',
+      'Read-only scopes',
+    ],
+    evidence: [
+      'Organization and workspace admins',
+      'Application management',
+      'Export and retention controls',
+    ],
+    steps: [
+      'Create an admin-approved OAuth application.',
+      'Grant minimum discovery scopes.',
+      'Select workspaces and enable audit-log ingestion.',
+    ],
+  },
+  CLOUDFLARE: {
+    title: 'Cloudflare control-plane adapter',
+    description: 'Evaluate account, DNS, access, edge and security-policy administration.',
+    category: 'Cloud',
+    requirements: ['Account ID', 'Scoped API token', 'Read-only account permissions'],
+    evidence: [
+      'Members and roles',
+      'DNS and zone administration',
+      'Access and security policy control',
+    ],
+    steps: [
+      'Create a read-only scoped API token.',
+      'Select accounts and zones.',
+      'Validate permissions and enable audit-log synchronization.',
     ],
   },
 };
@@ -232,6 +606,8 @@ export default function DashboardClient() {
   const [answer, setAnswer] = useState<CopilotAnswer | null>(null);
   const [asking, setAsking] = useState(false);
   const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
+  const [coverage, setCoverage] = useState<RealtimeCoverageSummary | null>(null);
+  const [simulationMode, setSimulationMode] = useState<'permission' | 'assignment'>('permission');
   const [simulating, setSimulating] = useState(false);
   const [activeView, setActiveView] = useState<WorkspaceView>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -239,6 +615,7 @@ export default function DashboardClient() {
   const [ruleFilter, setRuleFilter] = useState<string | null>(null);
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('all');
   const [connectorPlatform, setConnectorPlatform] = useState<string | null>(null);
+  const [connectorOnboardingStarted, setConnectorOnboardingStarted] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [trendRange, setTrendRange] = useState(30);
   const [postureTrend, setPostureTrend] = useState<ExecutivePostureTrend | null>(null);
@@ -255,16 +632,20 @@ export default function DashboardClient() {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
     try {
-      const [summaryResponse, accessResponse] = await Promise.all([
+      const [summaryResponse, accessResponse, coverageResponse] = await Promise.all([
         fetch(`${apiUrl}/risk/summary`),
         fetch(`${apiUrl}/toxic-access/identities`),
+        fetch(`${apiUrl}/toxic-access/coverage/realtime`),
       ]);
       if (!summaryResponse.ok) throw new Error(`Identity API returned ${summaryResponse.status}`);
       if (!accessResponse.ok) throw new Error(`Toxic Access API returned ${accessResponse.status}`);
+      if (!coverageResponse.ok) throw new Error(`Coverage API returned ${coverageResponse.status}`);
       const next = (await summaryResponse.json()) as RiskSummary;
       const evaluations = (await accessResponse.json()) as ToxicAccessEvaluation[];
+      const liveCoverage = (await coverageResponse.json()) as RealtimeCoverageSummary;
       setSummary(next);
       setAccessEvaluations(evaluations);
+      setCoverage(liveCoverage);
       setLastUpdated(new Date());
       setSelectedId(
         (current) => current ?? evaluations[0]?.identityId ?? next.topIdentities[0]?.id ?? null,
@@ -276,18 +657,21 @@ export default function DashboardClient() {
     }
   }, []);
 
-  const loadTrend = useCallback(async (days = trendRange) => {
-    setTrendLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/risk/executive-trend?days=${days}`);
-      if (!response.ok) throw new Error(`Trend API returned ${response.status}`);
-      setPostureTrend((await response.json()) as ExecutivePostureTrend);
-    } catch {
-      setPostureTrend(null);
-    } finally {
-      setTrendLoading(false);
-    }
-  }, [trendRange]);
+  const loadTrend = useCallback(
+    async (days = trendRange) => {
+      setTrendLoading(true);
+      try {
+        const response = await fetch(`${apiUrl}/risk/executive-trend?days=${days}`);
+        if (!response.ok) throw new Error(`Trend API returned ${response.status}`);
+        setPostureTrend((await response.json()) as ExecutivePostureTrend);
+      } catch {
+        setPostureTrend(null);
+      } finally {
+        setTrendLoading(false);
+      }
+    },
+    [trendRange],
+  );
 
   const refreshInFlight = useRef(false);
   const refreshLiveData = useCallback(async () => {
@@ -396,6 +780,17 @@ export default function DashboardClient() {
       ].slice(0, 6),
     [selectedAccess],
   );
+  const removableAssignments = useMemo(
+    () =>
+      [
+        ...new Set(
+          selectedAccess?.conflicts.flatMap(({ evidence }) =>
+            evidence.map(({ accessPath }) => accessPath[1]).filter(Boolean),
+          ) ?? [],
+        ),
+      ].slice(0, 6),
+    [selectedAccess],
+  );
   const selectedAccessPath = useMemo(
     () =>
       selectedAccess?.conflicts[0]?.evidence.flatMap(({ accessPath }) => accessPath) ??
@@ -431,7 +826,7 @@ export default function DashboardClient() {
     selectWorkspaceView(conflict ? 'conflicts' : 'identities');
   };
 
-  const runSimulation = async (permission: string) => {
+  const runSimulation = async (value: string, mode: 'permission' | 'assignment') => {
     if (!selectedIdentity) return;
     setSimulating(true);
     try {
@@ -440,7 +835,9 @@ export default function DashboardClient() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ removePermissions: [permission] }),
+          body: JSON.stringify(
+            mode === 'permission' ? { removePermissions: [value] } : { removeAssignments: [value] },
+          ),
         },
       );
       if (!response.ok) throw new Error(`Simulation returned ${response.status}`);
@@ -614,11 +1011,34 @@ export default function DashboardClient() {
       ).length,
     }))
     .sort((left, right) => right.conflicts - left.conflicts);
+  const connectorCoverageItems = Object.keys(connectorGuides).map((platform, index) => {
+    const live = coverage?.connectors.find(
+      (connector) => connector.platform.toUpperCase() === platform,
+    );
+    const observed = platformConflictCounts.find((item) => item.platform === platform);
+    return (
+      live ?? {
+        id: `catalog-${index}`,
+        platform,
+        status: 'READY_TO_CONNECT' as const,
+        identities: observed?.identities ?? 0,
+        entitlements: 0,
+        conflicts: observed?.conflicts ?? 0,
+        criticalConflicts: 0,
+        syncMode: 'API_SYNC' as const,
+        dataSource: `${connectorGuides[platform].category} onboarding adapter`,
+        evaluatedAt: new Date().toISOString(),
+        domain: connectorGuides[platform].category.toUpperCase().replace(' ', '_'),
+      }
+    );
+  });
   const selectedConnector = connectorPlatform
     ? (connectorGuides[connectorPlatform.toUpperCase()] ?? {
         title: `${connectorPlatform} adapter`,
         description: `Connect ${connectorPlatform} effective permission evidence to PID.`,
+        category: 'SaaS' as const,
         requirements: ['Read-only discovery credentials', 'Target tenant or account scope'],
+        evidence: ['Identities and roles', 'Effective permissions', 'Target resources'],
         steps: [
           'Create a dedicated read-only discovery identity.',
           'Enter the target scope and credentials using secret storage.',
@@ -690,813 +1110,971 @@ export default function DashboardClient() {
       </header>
 
       <div className="app-body">
-      <aside>
-        <nav>
-          <button
-            className={activeView === 'overview' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('overview')}
-          >
-            <Activity size={18} /> Overview
-          </button>
-          <button
-            className={activeView === 'identities' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('identities')}
-          >
-            <Users size={18} /> Identities
-          </button>
-          <button
-            className={activeView === 'conflicts' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('conflicts')}
-          >
-            <ShieldAlert size={18} /> Rule findings <b>{totalConflicts || '–'}</b>
-          </button>
-          <button
-            className={activeView === 'rule-builder' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('rule-builder')}
-          >
-            <SlidersHorizontal size={18} /> Rule builder
-          </button>
-          <button
-            className={activeView === 'attack-paths' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('attack-paths')}
-          >
-            <GitBranch size={18} /> Attack paths
-          </button>
-          <button
-            className={activeView === 'coverage' ? 'active' : ''}
-            onClick={() => selectWorkspaceView('coverage')}
-          >
-            <Cloud size={18} /> Connected Platforms
-          </button>
-        </nav>
-      </aside>
+        <aside>
+          <nav>
+            <button
+              className={activeView === 'overview' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('overview')}
+            >
+              <Activity size={18} /> Overview
+            </button>
+            <button
+              className={activeView === 'identities' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('identities')}
+            >
+              <Users size={18} /> Identities
+            </button>
+            <button
+              className={activeView === 'conflicts' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('conflicts')}
+            >
+              <ShieldAlert size={18} /> Rule findings <b>{totalConflicts || '–'}</b>
+            </button>
+            <button
+              className={activeView === 'rule-builder' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('rule-builder')}
+            >
+              <SlidersHorizontal size={18} /> Rule builder
+            </button>
+            <button
+              className={activeView === 'attack-paths' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('attack-paths')}
+            >
+              <GitBranch size={18} /> Attack paths
+            </button>
+            <button
+              className={activeView === 'coverage' ? 'active' : ''}
+              onClick={() => selectWorkspaceView('coverage')}
+            >
+              <Cloud size={18} /> Connected Platforms
+            </button>
+          </nav>
+        </aside>
 
-      <section className={`content view-${activeView}`} id={activeView}>
-        <header className="page-header">
-          <div>
-            <h1>
-              {activeView === 'overview' ? 'Welcome back' : viewCopy.title}
-            </h1>
-            <span>
-              {activeView === 'overview'
-                ? "Here's an overview of Privilege Intelligence & Detection"
-                : viewCopy.description}
-            </span>
-          </div>
-          <div className="search-shell">
-            <label className="search">
-              <Search size={18} />
-              <input
-                aria-label="Search identities, rules, permissions and platforms"
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search identities, rules, permissions…"
-                ref={searchInputRef}
-                value={searchQuery}
-              />
-              <kbd>⌘ K</kbd>
-            </label>
-            {searchQuery.trim() && (
-              <div className="search-results">
-                {searchResults.map(({ evaluation, conflict }) => (
-                  <button
-                    key={`${evaluation.identityId}-${conflict?.ruleId ?? 'identity'}`}
-                    onClick={() => openSearchResult(evaluation, conflict)}
-                  >
-                    <span>
-                      <strong>{evaluation.displayName}</strong>
-                      <small>
-                        {identityTypeLabel(evaluation.identityType)} · {evaluation.provider}
-                      </small>
-                    </span>
-                    <span>
-                      {conflict?.title ?? 'Identity profile'}
-                      <small>{conflict?.ruleId ?? 'View effective access'}</small>
-                    </span>
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
-                {searchResults.length === 0 && <p>No matching identity, rule or permission.</p>}
-              </div>
-            )}
-          </div>
-        </header>
-
-        {loading && (
-          <div className="state-banner loading">
-            <RefreshCw size={16} /> Loading identity evidence…
-          </div>
-        )}
-        {error && (
-          <div className="state-banner error">
-            <span>{error}</span>
-            <button onClick={() => void loadSummary()}>Retry</button>
-          </div>
-        )}
-
-        {activeView === 'rule-builder' && (
-          <VisualRuleBuilder onRulesChanged={() => void loadSummary()} />
-        )}
-
-        {activeView !== 'rule-builder' && summary && selectedIdentity && (
-          <>
-            <div className={`metrics ${activeView === 'overview' ? 'overview-metrics' : ''}`}>
-              {metrics.map(
-                (
-                  { label, value, Icon: MetricIcon, tone, target, severity: targetSeverity },
-                  index,
-                ) => {
-                  return (
-                    <button
-                      className={`metric ${tone}`}
-                      key={label}
-                      style={{ animationDelay: `${index * 70}ms` }}
-                      onClick={() => {
-                        if (target === 'conflicts') setSeverity(targetSeverity ?? 'all');
-                        setRuleFilter(null);
-                        selectWorkspaceView(target);
-                      }}
-                    >
-                      <div>
-                        <span>{label}</span>
-                        <MetricIcon size={19} />
-                      </div>
-                      <strong>{value}</strong>
-                      <p>
-                        {label === 'Toxic conflicts'
-                          ? 'Deterministic entitlement evidence'
-                          : `Open ${target.replace('-', ' ')}`}
-                      </p>
-                      {activeView === 'overview' && (
-                        <em className="metric-cta">
-                          Explore <ChevronRight size={14} />
-                        </em>
-                      )}
-                    </button>
-                  );
-                },
-              )}
+        <section className={`content view-${activeView}`} id={activeView}>
+          <header className="page-header">
+            <div>
+              <h1>{activeView === 'overview' ? 'Welcome back' : viewCopy.title}</h1>
+              <span>
+                {activeView === 'overview'
+                  ? "Here's an overview of Privilege Intelligence & Detection"
+                  : viewCopy.description}
+              </span>
             </div>
-
-            {activeView === 'overview' && (
-              <>
-                <section
-                  className={`pid-intelligence ${refreshing ? 'is-refreshing' : ''}`}
-                  aria-label="Privilege Intelligence and Detection"
-                >
-                  <div className="pid-integrations">
-                    <div className="pid-section-heading">
-                      <h3>Platform coverage</h3>
-                      <button
-                        type="button"
-                        className="text-link"
-                        onClick={() => selectWorkspaceView('coverage')}
-                      >
-                        Manage <ChevronRight size={14} />
-                      </button>
-                    </div>
-                    <div className="pid-integration-list">
-                      {platformConflictCounts.slice(0, 6).map(({ platform, conflicts, identities }) => {
-                        const maxConflicts = Math.max(
-                          ...platformConflictCounts.map((item) => item.conflicts),
-                          1,
-                        );
-                        return (
-                          <button
-                            key={platform}
-                            className={`pid-integration-card ${conflicts > 0 ? 'has-risk' : ''}`}
-                            onClick={() => {
-                              setConnectorPlatform(platform);
-                              selectWorkspaceView('coverage');
-                            }}
-                          >
-                            <span className="pid-platform-icon">
-                              <Cloud size={16} />
-                            </span>
-                            <span className="pid-platform-copy">
-                              <strong>{platform}</strong>
-                              <small>
-                                {conflicts > 0
-                                  ? `${conflicts} conflicts · ${identities} identities`
-                                  : 'Connected · no conflicts'}
-                              </small>
-                              <span
-                                className="pid-platform-bar"
-                                aria-hidden
-                              >
-                                <i style={{ width: `${Math.max((conflicts / maxConflicts) * 100, 6)}%` }} />
-                              </span>
-                            </span>
-                            <span className={conflicts > 0 ? 'status-hot' : 'status-ok'} />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="pid-flow-graphic" aria-hidden />
-                  </div>
-                  <div className="pid-orb-panel">
-                    <h3>Privilege Intelligence &amp; Detection</h3>
+            <div className="search-shell">
+              <label className="search">
+                <Search size={18} />
+                <input
+                  aria-label="Search identities, rules, permissions and platforms"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search identities, rules, permissions…"
+                  ref={searchInputRef}
+                  value={searchQuery}
+                />
+                <kbd>⌘ K</kbd>
+              </label>
+              {searchQuery.trim() && (
+                <div className="search-results">
+                  {searchResults.map(({ evaluation, conflict }) => (
                     <button
-                      type="button"
-                      className="pid-orb"
-                      aria-label={`${totalConflicts} toxic conflicts — investigate findings`}
-                      onClick={() => selectWorkspaceView('conflicts')}
+                      key={`${evaluation.identityId}-${conflict?.ruleId ?? 'identity'}`}
+                      onClick={() => openSearchResult(evaluation, conflict)}
                     >
-                      <div className="pid-orb-ring" aria-hidden />
-                      <div className="pid-orb-particles" aria-hidden />
-                      <div className="pid-orb-core">
-                        <strong>{totalConflicts}</strong>
-                        <span>Toxic conflicts</span>
-                      </div>
-                    </button>
-                    <div className="pid-stat-chips">
-                      <button
-                        type="button"
-                        className="pid-chip critical"
-                        onClick={() => {
-                          setSeverity('critical');
-                          selectWorkspaceView('conflicts');
-                        }}
-                      >
-                        <b>{criticalConflicts}</b>
-                        <span>Critical</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="pid-chip platforms"
-                        onClick={() => selectWorkspaceView('coverage')}
-                      >
-                        <b>{affectedPlatforms}</b>
-                        <span>Platforms</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="pid-chip identities"
-                        onClick={() => selectWorkspaceView('identities')}
-                      >
-                        <b>{summary.identitiesScanned}</b>
-                        <span>Identities</span>
-                      </button>
-                    </div>
-                    <div className="pid-orb-actions">
-                      <button
-                        type="button"
-                        className="primary-action"
-                        onClick={() => selectWorkspaceView('conflicts')}
-                      >
-                        Investigate findings
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-action"
-                        onClick={() => selectWorkspaceView('attack-paths')}
-                      >
-                        View attack paths
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <div className="overview-quick-actions" aria-label="Quick actions">
-                  {[
-                    {
-                      label: 'Rule findings',
-                      hint: 'Review toxic combinations',
-                      Icon: ShieldAlert,
-                      action: () => selectWorkspaceView('conflicts'),
-                    },
-                    {
-                      label: 'Attack paths',
-                      hint: 'Simulate privilege removal',
-                      Icon: GitBranch,
-                      action: () => selectWorkspaceView('attack-paths'),
-                    },
-                    {
-                      label: 'Rule builder',
-                      hint: 'Author custom toxic rules',
-                      Icon: SlidersHorizontal,
-                      action: () => selectWorkspaceView('rule-builder'),
-                    },
-                    {
-                      label: 'Refresh live',
-                      hint: refreshing ? 'Updating evidence…' : 'Pull latest evaluation',
-                      Icon: RefreshCw,
-                      action: () => void refreshLiveData(),
-                      spinning: refreshing,
-                    },
-                  ].map(({ label, hint, Icon: ActionIcon, action, spinning }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      className={`overview-action-card ${spinning ? 'spinning' : ''}`}
-                      onClick={action}
-                      disabled={Boolean(spinning)}
-                    >
-                      <span className="overview-action-icon">
-                        <ActionIcon size={18} />
+                      <span>
+                        <strong>{evaluation.displayName}</strong>
+                        <small>
+                          {identityTypeLabel(evaluation.identityType)} · {evaluation.provider}
+                        </small>
                       </span>
                       <span>
-                        <strong>{label}</strong>
-                        <small>{hint}</small>
+                        {conflict?.title ?? 'Identity profile'}
+                        <small>{conflict?.ruleId ?? 'View effective access'}</small>
                       </span>
                       <ChevronRight size={16} />
                     </button>
                   ))}
+                  {searchResults.length === 0 && <p>No matching identity, rule or permission.</p>}
                 </div>
+              )}
+            </div>
+          </header>
 
-                <ExecutiveTrendChart
-                  loading={trendLoading}
-                  onRangeChange={setTrendRange}
-                  range={trendRange}
-                  trend={postureTrend}
-                />
-                <div className="overview-grid">
-                  <article className="panel overview-rules">
+          {loading && (
+            <div className="state-banner loading">
+              <RefreshCw size={16} /> Loading identity evidence…
+            </div>
+          )}
+          {error && (
+            <div className="state-banner error">
+              <span>{error}</span>
+              <button onClick={() => void loadSummary()}>Retry</button>
+            </div>
+          )}
+
+          {activeView === 'rule-builder' && (
+            <VisualRuleBuilder onRulesChanged={() => void loadSummary()} />
+          )}
+
+          {activeView !== 'rule-builder' && summary && selectedIdentity && (
+            <>
+              <div className={`metrics ${activeView === 'overview' ? 'overview-metrics' : ''}`}>
+                {metrics.map(
+                  (
+                    { label, value, Icon: MetricIcon, tone, target, severity: targetSeverity },
+                    index,
+                  ) => {
+                    return (
+                      <button
+                        className={`metric ${tone}`}
+                        key={label}
+                        style={{ animationDelay: `${index * 70}ms` }}
+                        onClick={() => {
+                          if (target === 'conflicts') setSeverity(targetSeverity ?? 'all');
+                          setRuleFilter(null);
+                          selectWorkspaceView(target);
+                        }}
+                      >
+                        <div>
+                          <span>{label}</span>
+                          <MetricIcon size={19} />
+                        </div>
+                        <strong>{value}</strong>
+                        <p>
+                          {label === 'Toxic conflicts'
+                            ? 'Deterministic entitlement evidence'
+                            : `Open ${target.replace('-', ' ')}`}
+                        </p>
+                        {activeView === 'overview' && (
+                          <em className="metric-cta">
+                            Explore <ChevronRight size={14} />
+                          </em>
+                        )}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+
+              {activeView === 'overview' && (
+                <>
+                  <section
+                    className={`pid-intelligence ${refreshing ? 'is-refreshing' : ''}`}
+                    aria-label="Privilege Intelligence and Detection"
+                  >
+                    <div className="pid-integrations">
+                      <div className="pid-section-heading">
+                        <h3>Platform coverage</h3>
+                        <button
+                          type="button"
+                          className="text-link"
+                          onClick={() => selectWorkspaceView('coverage')}
+                        >
+                          Manage <ChevronRight size={14} />
+                        </button>
+                      </div>
+                      <div className="pid-integration-list">
+                        {platformConflictCounts
+                          .slice(0, 6)
+                          .map(({ platform, conflicts, identities }) => {
+                            const maxConflicts = Math.max(
+                              ...platformConflictCounts.map((item) => item.conflicts),
+                              1,
+                            );
+                            return (
+                              <button
+                                key={platform}
+                                className={`pid-integration-card ${conflicts > 0 ? 'has-risk' : ''}`}
+                                onClick={() => {
+                                  setConnectorPlatform(platform);
+                                  selectWorkspaceView('coverage');
+                                }}
+                              >
+                                <PlatformIcon platform={platform} />
+                                <span className="pid-platform-copy">
+                                  <strong>{platform}</strong>
+                                  <small>
+                                    {conflicts > 0
+                                      ? `${conflicts} conflicts · ${identities} identities`
+                                      : 'Connected · no conflicts'}
+                                  </small>
+                                  <span className="pid-platform-bar" aria-hidden>
+                                    <i
+                                      style={{
+                                        width: `${Math.max((conflicts / maxConflicts) * 100, 6)}%`,
+                                      }}
+                                    />
+                                  </span>
+                                </span>
+                                <span className={conflicts > 0 ? 'status-hot' : 'status-ok'} />
+                              </button>
+                            );
+                          })}
+                      </div>
+                      <div className="pid-flow-graphic" aria-hidden />
+                    </div>
+                    <div className="pid-orb-panel">
+                      <h3>Privilege Intelligence &amp; Detection</h3>
+                      <button
+                        type="button"
+                        className="pid-orb"
+                        aria-label={`${totalConflicts} toxic conflicts — investigate findings`}
+                        onClick={() => selectWorkspaceView('conflicts')}
+                      >
+                        <div className="pid-orb-ring" aria-hidden />
+                        <div className="pid-orb-particles" aria-hidden />
+                        <div className="pid-orb-core">
+                          <strong>{totalConflicts}</strong>
+                          <span>Toxic conflicts</span>
+                        </div>
+                      </button>
+                      <div className="pid-stat-chips">
+                        <button
+                          type="button"
+                          className="pid-chip critical"
+                          onClick={() => {
+                            setSeverity('critical');
+                            selectWorkspaceView('conflicts');
+                          }}
+                        >
+                          <b>{criticalConflicts}</b>
+                          <span>Critical</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="pid-chip platforms"
+                          onClick={() => selectWorkspaceView('coverage')}
+                        >
+                          <b>{affectedPlatforms}</b>
+                          <span>Platforms</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="pid-chip identities"
+                          onClick={() => selectWorkspaceView('identities')}
+                        >
+                          <b>{summary.identitiesScanned}</b>
+                          <span>Identities</span>
+                        </button>
+                      </div>
+                      <div className="pid-orb-actions">
+                        <button
+                          type="button"
+                          className="primary-action"
+                          onClick={() => selectWorkspaceView('conflicts')}
+                        >
+                          Investigate findings
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-action"
+                          onClick={() => selectWorkspaceView('attack-paths')}
+                        >
+                          View attack paths
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className="overview-quick-actions" aria-label="Quick actions">
+                    {[
+                      {
+                        label: 'Rule findings',
+                        hint: 'Review toxic combinations',
+                        Icon: ShieldAlert,
+                        action: () => selectWorkspaceView('conflicts'),
+                      },
+                      {
+                        label: 'Attack paths',
+                        hint: 'Simulate privilege removal',
+                        Icon: GitBranch,
+                        action: () => selectWorkspaceView('attack-paths'),
+                      },
+                      {
+                        label: 'Rule builder',
+                        hint: 'Author custom toxic rules',
+                        Icon: SlidersHorizontal,
+                        action: () => selectWorkspaceView('rule-builder'),
+                      },
+                      {
+                        label: 'Refresh live',
+                        hint: refreshing ? 'Updating evidence…' : 'Pull latest evaluation',
+                        Icon: RefreshCw,
+                        action: () => void refreshLiveData(),
+                        spinning: refreshing,
+                      },
+                    ].map(({ label, hint, Icon: ActionIcon, action, spinning }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`overview-action-card ${spinning ? 'spinning' : ''}`}
+                        onClick={action}
+                        disabled={Boolean(spinning)}
+                      >
+                        <span className="overview-action-icon">
+                          <ActionIcon size={18} />
+                        </span>
+                        <span>
+                          <strong>{label}</strong>
+                          <small>{hint}</small>
+                        </span>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                  </div>
+
+                  {coverage && (
+                    <section className="live-intelligence-strip">
+                      <div className="live-intelligence-title">
+                        <span>
+                          <Radio size={16} /> LIVE PRIVILEGE SIGNAL
+                        </span>
+                        <strong>
+                          {coverage.connectedPlatforms} of {coverage.availablePlatforms} control
+                          planes reporting
+                        </strong>
+                        <small>
+                          {coverage.identitiesObserved} identities · {coverage.entitlementsObserved}{' '}
+                          effective entitlements · evaluated every {coverage.refreshIntervalSeconds}
+                          s
+                        </small>
+                        <small className="evidence-mode">
+                          {coverage.evidenceMode === 'CONNECTED'
+                            ? `Connected evidence · ${coverage.evidenceSource}`
+                            : 'Live demonstration evidence · production adapters use the same evaluation contract'}
+                        </small>
+                      </div>
+                      <div className="live-connector-pills">
+                        {coverage.connectors.slice(0, 7).map((connector) => (
+                          <button
+                            className={connector.status === 'CONNECTED' ? 'connected' : 'ready'}
+                            key={connector.id}
+                            onClick={() => {
+                              setConnectorPlatform(connector.platform);
+                              selectWorkspaceView('coverage');
+                            }}
+                          >
+                            <i />
+                            <PlatformIcon platform={connector.platform} compact />
+                            {connector.platform}
+                            <small>{connector.entitlements || 'Configure'}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  <ExecutiveTrendChart
+                    loading={trendLoading}
+                    onRangeChange={setTrendRange}
+                    range={trendRange}
+                    trend={postureTrend}
+                  />
+                  <div className="overview-grid">
+                    <article className="panel overview-rules">
+                      <div className="panel-title">
+                        <div>
+                          <p>RULE CATEGORIES</p>
+                          <h2>Where toxic access is concentrated</h2>
+                        </div>
+                        <span>Click to investigate</span>
+                      </div>
+                      <div className="category-list">
+                        {ruleCategories.map(({ category, rules, identities, critical }) => {
+                          const maxCritical = Math.max(
+                            ...ruleCategories.map((item) => item.critical),
+                            1,
+                          );
+                          return (
+                            <button
+                              key={category}
+                              onClick={() => {
+                                setCategoryFilter(category);
+                                setRuleFilter(null);
+                                setSeverity('all');
+                                const firstIdentity = accessEvaluations.find((evaluation) =>
+                                  evaluation.conflicts.some(
+                                    (conflict) => conflict.category === category,
+                                  ),
+                                );
+                                if (firstIdentity) setSelectedId(firstIdentity.identityId);
+                                selectWorkspaceView('conflicts');
+                              }}
+                            >
+                              <span>
+                                <strong>{category.replaceAll('_', ' ')}</strong>
+                                <small>{rules.size} deterministic rules</small>
+                                <span className="category-heat" aria-hidden>
+                                  <i
+                                    style={{
+                                      width: `${Math.max((critical / maxCritical) * 100, 8)}%`,
+                                    }}
+                                  />
+                                </span>
+                              </span>
+                              <span>
+                                <b>{identities.size}</b> identities
+                                <small>{critical} critical matches</small>
+                              </span>
+                              <ChevronRight size={17} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </article>
+                    <article className={`panel live-posture ${refreshing ? 'is-refreshing' : ''}`}>
+                      <div className="panel-title">
+                        <div>
+                          <p>LIVE DETECTION</p>
+                          <h2>Current evaluation status</h2>
+                        </div>
+                        <span className={`live-indicator ${refreshing ? 'active' : ''}`}>
+                          <i /> {refreshing ? 'Refreshing now…' : 'Live · click refresh'}
+                        </span>
+                      </div>
+                      <strong key={lastUpdated?.getTime() ?? 0}>{totalConflicts}</strong>
+                      <p>
+                        identity-to-rule matches across {affectedPlatforms} connected platforms.
+                      </p>
+                      <div className="live-posture-stats">
+                        <div>
+                          <b>{criticalConflicts}</b>
+                          <span>Critical</span>
+                        </div>
+                        <div>
+                          <b>{summary.identitiesScanned}</b>
+                          <span>Scanned</span>
+                        </div>
+                        <div>
+                          <b>{affectedPlatforms}</b>
+                          <span>Platforms</span>
+                        </div>
+                      </div>
+                      <small>
+                        Last evaluated{' '}
+                        {lastUpdated?.toLocaleTimeString() ?? 'when data becomes available'}
+                      </small>
+                      <button
+                        type="button"
+                        className={refreshing ? 'refreshing' : ''}
+                        aria-busy={refreshing}
+                        disabled={refreshing}
+                        onClick={() => void refreshLiveData()}
+                      >
+                        <RefreshCw size={15} aria-hidden />
+                        {refreshing ? 'Refreshing…' : 'Refresh now'}
+                      </button>
+                    </article>
+                  </div>
+
+                  <article className="panel overview-hotspots">
                     <div className="panel-title">
                       <div>
-                        <p>RULE CATEGORIES</p>
-                        <h2>Where toxic access is concentrated</h2>
+                        <p>PRIORITY HOTSPOTS</p>
+                        <h2>Identities needing attention first</h2>
                       </div>
-                      <span>Click to investigate</span>
+                      <button
+                        type="button"
+                        className="text-link"
+                        onClick={() => selectWorkspaceView('identities')}
+                      >
+                        View all <ChevronRight size={14} />
+                      </button>
                     </div>
-                    <div className="category-list">
-                      {ruleCategories.map(({ category, rules, identities, critical }) => {
-                        const maxCritical = Math.max(
-                          ...ruleCategories.map((item) => item.critical),
-                          1,
+                    <div className="hotspot-grid">
+                      {summary.topIdentities.slice(0, 4).map((identity) => {
+                        const evaluation = accessEvaluations.find(
+                          ({ identityId }) => identityId === identity.id,
                         );
+                        const conflictCount = evaluation?.summary.total ?? 0;
                         return (
                           <button
+                            key={identity.id}
+                            type="button"
+                            className="hotspot-card"
+                            onClick={() => {
+                              selectIdentity(identity);
+                              selectWorkspaceView('identities');
+                            }}
+                          >
+                            <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
+                            <div className="hotspot-copy">
+                              <strong>{identity.name}</strong>
+                              <small>
+                                {identity.department} · {identityTypeLabel(identity.type)}
+                              </small>
+                              <span>
+                                {evaluation?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                              </span>
+                            </div>
+                            <div className={`hotspot-score ${conflictCount > 2 ? 'hot' : ''}`}>
+                              {conflictCount}
+                              <small>conflicts</small>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                </>
+              )}
+
+              <div className="workspace-grid">
+                <article className="panel identity-list" id="identities">
+                  <div className="panel-title">
+                    <div>
+                      <p>
+                        {activeView === 'conflicts' ? 'AFFECTED USERS / ROLES' : 'PRIORITY QUEUE'}
+                      </p>
+                      <h2>
+                        {activeView === 'conflicts'
+                          ? 'Identities in this category'
+                          : 'Priority identities'}
+                      </h2>
+                    </div>
+                    <span>{summary.platformCoverage.length} platforms</span>
+                  </div>
+                  <div className="identity-type-filter">
+                    {(['all', 'HUMAN', 'NHI'] as IdentityTypeFilter[]).map((type) => (
+                      <button
+                        className={identityTypeFilter === type ? 'active' : ''}
+                        key={type}
+                        onClick={() => setIdentityTypeFilter(type)}
+                      >
+                        {type === 'all' ? 'All' : type === 'HUMAN' ? 'Users' : 'NHI'}
+                        <span>
+                          {type === 'all'
+                            ? accessEvaluations.length
+                            : accessEvaluations.filter(({ identityType }) =>
+                                type === 'HUMAN'
+                                  ? identityType === 'HUMAN'
+                                  : identityType !== 'HUMAN',
+                              ).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {summary.topIdentities
+                    .filter((identity) =>
+                      visibleIdentities.some(
+                        ({ identityId, conflicts }) =>
+                          identityId === identity.id &&
+                          (activeView !== 'conflicts' ||
+                            categoryFilter === 'all' ||
+                            conflicts.some(({ category }) => category === categoryFilter)),
+                      ),
+                    )
+                    .map((identity) => (
+                      <button
+                        className={`identity ${identity.id === selectedIdentity.id ? 'selected' : ''}`}
+                        key={identity.id}
+                        onClick={() => selectIdentity(identity)}
+                      >
+                        <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="identity-copy">
+                          <strong>{identity.name}</strong>
+                          <small>
+                            {identity.department} · {identityTypeLabel(identity.type)}
+                          </small>
+                          <span>
+                            {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                              ?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                          </span>
+                        </div>
+                        <div className="score conflict-count">
+                          {accessEvaluations.find(({ identityId }) => identityId === identity.id)
+                            ?.summary.total ?? 0}
+                          <small>CONFLICTS</small>
+                        </div>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                </article>
+
+                <article className="panel identity-detail" id="findings">
+                  <div className="detail-heading">
+                    <div className="avatar large">
+                      {selectedIdentity.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p>IDENTITY INVESTIGATION</p>
+                      <h2>{selectedIdentity.name}</h2>
+                      <span>
+                        {selectedIdentity.department} · {selectedIdentity.platforms.join(' · ')}
+                      </span>
+                    </div>
+                    <div className="score hero-score">
+                      {selectedAccess?.summary.total ?? 0}
+                      <small>CONFLICTS</small>
+                    </div>
+                  </div>
+
+                  {selectedAccess && selectedAccess.identityType !== 'HUMAN' && (
+                    <div className="nhi-context">
+                      <Bot size={18} />
+                      <span>
+                        <strong>Non-Human Identity privilege posture</strong>
+                        This workload or service identity participates in{' '}
+                        {selectedAccess?.summary.total ?? 0} toxic combinations across{' '}
+                        {selectedAccess?.summary.affectedPlatforms.length ?? 0} platforms.
+                      </span>
+                      <span>
+                        <strong>Risky actions</strong>
+                        {[
+                          ...new Set(
+                            selectedAccess?.conflicts.flatMap(({ evidence }) =>
+                              evidence.map(({ permission }) => permission),
+                            ) ?? [],
+                          ),
+                        ]
+                          .slice(0, 3)
+                          .join(' · ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {activeView === 'conflicts' && (
+                    <>
+                      <div className="rule-category-filter">
+                        <button
+                          className={categoryFilter === 'all' ? 'active' : ''}
+                          onClick={() => {
+                            setCategoryFilter('all');
+                            setRuleFilter(null);
+                          }}
+                        >
+                          All categories
+                        </button>
+                        {ruleCategories.map(({ category, identities }) => (
+                          <button
+                            className={categoryFilter === category ? 'active' : ''}
                             key={category}
                             onClick={() => {
                               setCategoryFilter(category);
                               setRuleFilter(null);
-                              setSeverity('all');
                               const firstIdentity = accessEvaluations.find((evaluation) =>
                                 evaluation.conflicts.some(
                                   (conflict) => conflict.category === category,
                                 ),
                               );
                               if (firstIdentity) setSelectedId(firstIdentity.identityId);
-                              selectWorkspaceView('conflicts');
                             }}
                           >
-                            <span>
-                              <strong>{category.replaceAll('_', ' ')}</strong>
-                              <small>{rules.size} deterministic rules</small>
-                              <span className="category-heat" aria-hidden>
-                                <i
-                                  style={{
-                                    width: `${Math.max((critical / maxCritical) * 100, 8)}%`,
-                                  }}
-                                />
-                              </span>
-                            </span>
-                            <span>
-                              <b>{identities.size}</b> identities
-                              <small>{critical} critical matches</small>
-                            </span>
-                            <ChevronRight size={17} />
+                            {category.replaceAll('_', ' ')}
+                            <span>{identities.size}</span>
                           </button>
-                        );
-                      })}
-                    </div>
-                  </article>
-                  <article className={`panel live-posture ${refreshing ? 'is-refreshing' : ''}`}>
-                    <div className="panel-title">
-                      <div>
-                        <p>LIVE DETECTION</p>
-                        <h2>Current evaluation status</h2>
+                        ))}
                       </div>
-                      <span className={`live-indicator ${refreshing ? 'active' : ''}`}>
-                        <i /> {refreshing ? 'Refreshing now…' : 'Live · click refresh'}
-                      </span>
-                    </div>
-                    <strong key={lastUpdated?.getTime() ?? 0}>{totalConflicts}</strong>
-                    <p>identity-to-rule matches across {affectedPlatforms} connected platforms.</p>
-                    <div className="live-posture-stats">
-                      <div>
-                        <b>{criticalConflicts}</b>
-                        <span>Critical</span>
-                      </div>
-                      <div>
-                        <b>{summary.identitiesScanned}</b>
-                        <span>Scanned</span>
-                      </div>
-                      <div>
-                        <b>{affectedPlatforms}</b>
-                        <span>Platforms</span>
-                      </div>
-                    </div>
-                    <small>
-                      Last evaluated{' '}
-                      {lastUpdated?.toLocaleTimeString() ?? 'when data becomes available'}
-                    </small>
-                    <button
-                      type="button"
-                      className={refreshing ? 'refreshing' : ''}
-                      aria-busy={refreshing}
-                      disabled={refreshing}
-                      onClick={() => void refreshLiveData()}
-                    >
-                      <RefreshCw size={15} aria-hidden />
-                      {refreshing ? 'Refreshing…' : 'Refresh now'}
-                    </button>
-                  </article>
-                </div>
-
-                <article className="panel overview-hotspots">
-                  <div className="panel-title">
-                    <div>
-                      <p>PRIORITY HOTSPOTS</p>
-                      <h2>Identities needing attention first</h2>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-link"
-                      onClick={() => selectWorkspaceView('identities')}
-                    >
-                      View all <ChevronRight size={14} />
-                    </button>
-                  </div>
-                  <div className="hotspot-grid">
-                    {summary.topIdentities.slice(0, 4).map((identity) => {
-                      const evaluation = accessEvaluations.find(
-                        ({ identityId }) => identityId === identity.id,
-                      );
-                      const conflictCount = evaluation?.summary.total ?? 0;
-                      return (
-                        <button
-                          key={identity.id}
-                          type="button"
-                          className="hotspot-card"
-                          onClick={() => {
-                            selectIdentity(identity);
-                            selectWorkspaceView('identities');
-                          }}
-                        >
-                          <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
-                          <div className="hotspot-copy">
-                            <strong>{identity.name}</strong>
-                            <small>
-                              {identity.department} · {identityTypeLabel(identity.type)}
-                            </small>
-                            <span>
-                              {evaluation?.conflicts[0]?.title ?? 'No toxic combination detected'}
-                            </span>
-                          </div>
-                          <div className={`hotspot-score ${conflictCount > 2 ? 'hot' : ''}`}>
-                            {conflictCount}
-                            <small>conflicts</small>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </article>
-              </>
-            )}
-
-            <div className="workspace-grid">
-              <article className="panel identity-list" id="identities">
-                <div className="panel-title">
-                  <div>
-                    <p>
-                      {activeView === 'conflicts' ? 'AFFECTED USERS / ROLES' : 'PRIORITY QUEUE'}
-                    </p>
-                    <h2>
-                      {activeView === 'conflicts'
-                        ? 'Identities in this category'
-                        : 'Priority identities'}
-                    </h2>
-                  </div>
-                  <span>{summary.platformCoverage.length} platforms</span>
-                </div>
-                <div className="identity-type-filter">
-                  {(['all', 'HUMAN', 'NHI'] as IdentityTypeFilter[]).map((type) => (
-                    <button
-                      className={identityTypeFilter === type ? 'active' : ''}
-                      key={type}
-                      onClick={() => setIdentityTypeFilter(type)}
-                    >
-                      {type === 'all' ? 'All' : type === 'HUMAN' ? 'Users' : 'NHI'}
-                      <span>
-                        {type === 'all'
-                          ? accessEvaluations.length
-                          : accessEvaluations.filter(({ identityType }) =>
-                              type === 'HUMAN'
-                                ? identityType === 'HUMAN'
-                                : identityType !== 'HUMAN',
-                            ).length}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {summary.topIdentities
-                  .filter((identity) =>
-                    visibleIdentities.some(
-                      ({ identityId, conflicts }) =>
-                        identityId === identity.id &&
-                        (activeView !== 'conflicts' ||
-                          categoryFilter === 'all' ||
-                          conflicts.some(({ category }) => category === categoryFilter)),
-                    ),
-                  )
-                  .map((identity) => (
-                    <button
-                      className={`identity ${identity.id === selectedIdentity.id ? 'selected' : ''}`}
-                      key={identity.id}
-                      onClick={() => selectIdentity(identity)}
-                    >
-                      <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
-                      <div className="identity-copy">
-                        <strong>{identity.name}</strong>
-                        <small>
-                          {identity.department} · {identityTypeLabel(identity.type)}
-                        </small>
+                      <div className="rule-trace">
                         <span>
-                          {accessEvaluations.find(({ identityId }) => identityId === identity.id)
-                            ?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                          <strong>Identity / role</strong>
+                          {selectedAccess?.displayName} ·{' '}
+                          {identityTypeLabel(selectedAccess?.identityType)}
+                        </span>
+                        <ChevronRight size={15} />
+                        <span>
+                          <strong>Provider</strong>
+                          {selectedAccess?.provider}
+                        </span>
+                        <ChevronRight size={15} />
+                        <span>
+                          <strong>Matched rules</strong>
+                          {filteredConflicts.length}
                         </span>
                       </div>
-                      <div className="score conflict-count">
-                        {accessEvaluations.find(({ identityId }) => identityId === identity.id)
-                          ?.summary.total ?? 0}
-                        <small>CONFLICTS</small>
-                      </div>
-                      <ChevronRight size={16} />
-                    </button>
-                  ))}
-              </article>
+                    </>
+                  )}
 
-              <article className="panel identity-detail" id="findings">
-                <div className="detail-heading">
-                  <div className="avatar large">
-                    {selectedIdentity.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <p>IDENTITY INVESTIGATION</p>
-                    <h2>{selectedIdentity.name}</h2>
-                    <span>
-                      {selectedIdentity.department} · {selectedIdentity.platforms.join(' · ')}
-                    </span>
-                  </div>
-                  <div className="score hero-score">
-                    {selectedAccess?.summary.total ?? 0}
-                    <small>CONFLICTS</small>
-                  </div>
-                </div>
-
-                {selectedAccess && selectedAccess.identityType !== 'HUMAN' && (
-                  <div className="nhi-context">
-                    <Bot size={18} />
-                    <span>
-                      <strong>Non-Human Identity privilege posture</strong>
-                      This workload or service identity participates in{' '}
-                      {selectedAccess?.summary.total ?? 0} toxic combinations across{' '}
-                      {selectedAccess?.summary.affectedPlatforms.length ?? 0} platforms.
-                    </span>
-                    <span>
-                      <strong>Risky actions</strong>
-                      {[
-                        ...new Set(
-                          selectedAccess?.conflicts.flatMap(({ evidence }) =>
-                            evidence.map(({ permission }) => permission),
-                          ) ?? [],
-                        ),
-                      ]
-                        .slice(0, 3)
-                        .join(' · ')}
-                    </span>
-                  </div>
-                )}
-
-                {activeView === 'conflicts' && (
-                  <>
-                    <div className="rule-category-filter">
+                  <div className="filter-row">
+                    {severities.map((item) => (
                       <button
-                        className={categoryFilter === 'all' ? 'active' : ''}
+                        className={severity === item ? 'active' : ''}
+                        key={item}
                         onClick={() => {
-                          setCategoryFilter('all');
+                          setSeverity(item);
                           setRuleFilter(null);
                         }}
                       >
-                        All categories
+                        {item}
                       </button>
-                      {ruleCategories.map(({ category, identities }) => (
-                        <button
-                          className={categoryFilter === category ? 'active' : ''}
-                          key={category}
-                          onClick={() => {
-                            setCategoryFilter(category);
-                            setRuleFilter(null);
-                            const firstIdentity = accessEvaluations.find((evaluation) =>
-                              evaluation.conflicts.some(
-                                (conflict) => conflict.category === category,
-                              ),
-                            );
-                            if (firstIdentity) setSelectedId(firstIdentity.identityId);
-                          }}
-                        >
-                          {category.replaceAll('_', ' ')}
-                          <span>{identities.size}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="rule-trace">
-                      <span>
-                        <strong>Identity / role</strong>
-                        {selectedAccess?.displayName} ·{' '}
-                        {identityTypeLabel(selectedAccess?.identityType)}
-                      </span>
-                      <ChevronRight size={15} />
-                      <span>
-                        <strong>Provider</strong>
-                        {selectedAccess?.provider}
-                      </span>
-                      <ChevronRight size={15} />
-                      <span>
-                        <strong>Matched rules</strong>
-                        {filteredConflicts.length}
-                      </span>
-                    </div>
-                  </>
-                )}
+                    ))}
+                    {ruleFilter && (
+                      <button className="active" onClick={() => setRuleFilter(null)}>
+                        {ruleFilter} <X size={11} />
+                      </button>
+                    )}
+                  </div>
 
-                <div className="filter-row">
-                  {severities.map((item) => (
-                    <button
-                      className={severity === item ? 'active' : ''}
-                      key={item}
-                      onClick={() => {
-                        setSeverity(item);
-                        setRuleFilter(null);
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                  {ruleFilter && (
-                    <button className="active" onClick={() => setRuleFilter(null)}>
-                      {ruleFilter} <X size={11} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="finding-list">
-                  {filteredConflicts.map((conflict) => (
-                    <button
-                      className="finding"
-                      key={conflict.ruleId}
-                      onClick={() => {
-                        setSelectedNode(conflict.evidence[0]?.accessPath.at(-1) ?? null);
-                        selectWorkspaceView('attack-paths');
-                      }}
-                    >
-                      <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
-                      <div>
-                        <strong>
-                          {conflict.title} <small>{conflict.ruleId}</small>
-                        </strong>
-                        <p>{conflict.businessImpact}</p>
-                        <small>
-                          {conflict.category.replaceAll('_', ' ')} ·{' '}
-                          {conflict.platforms.join(' → ')} · {conflict.evidence.length} matched
-                          permissions
-                        </small>
+                  <div className="finding-list">
+                    {filteredConflicts.map((conflict) => (
+                      <button
+                        className="finding"
+                        key={conflict.ruleId}
+                        onClick={() => {
+                          setSelectedNode(conflict.evidence[0]?.accessPath.at(-1) ?? null);
+                          selectWorkspaceView('attack-paths');
+                        }}
+                      >
+                        <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
+                        <div>
+                          <strong>
+                            {conflict.title} <small>{conflict.ruleId}</small>
+                          </strong>
+                          <p>{conflict.businessImpact}</p>
+                          <small>
+                            {conflict.category.replaceAll('_', ' ')} ·{' '}
+                            {conflict.platforms.join(' → ')} · {conflict.evidence.length} matched
+                            permissions
+                          </small>
+                        </div>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                    {filteredConflicts.length === 0 && (
+                      <div className="empty-conflicts">
+                        No entitlement conflicts match this filter.
                       </div>
-                      <ChevronRight size={16} />
+                    )}
+                  </div>
+                </article>
+
+                <article className="panel path" id="attack-path">
+                  <div className="panel-title">
+                    <div>
+                      <p>INTERACTIVE ATTACK PATH</p>
+                      <h2>Identity → high-value resource</h2>
+                    </div>
+                    <span>{selectedAccess?.source ?? 'demo compatibility'}</span>
+                  </div>
+                  <AttackPathGraph
+                    paths={attackPathGraphPaths}
+                    selectedNode={selectedNode}
+                    onSelectNode={setSelectedNode}
+                  />
+                  <div className="path-insight">
+                    <Zap size={17} />
+                    <span>
+                      {selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an
+                      effective-access path contributing to{' '}
+                      {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
+                    </span>
+                  </div>
+                </article>
+
+                <article className="panel simulator">
+                  <div className="panel-title">
+                    <div>
+                      <p>WHAT-IF REMEDIATION</p>
+                      <h2>
+                        Simulate least privilege for{' '}
+                        {identityTypeLabel(selectedAccess?.identityType)}
+                      </h2>
+                    </div>
+                    <Sparkles size={19} />
+                  </div>
+                  <p className="muted">
+                    Remove a permission or its originating role to compare risk reduction, disrupted
+                    attack paths, protected resources, and retained business access. No live access
+                    is changed.
+                  </p>
+                  <div className="simulation-mode">
+                    <button
+                      className={simulationMode === 'permission' ? 'active' : ''}
+                      onClick={() => {
+                        setSimulationMode('permission');
+                        setSimulation(null);
+                      }}
+                    >
+                      Permission
                     </button>
-                  ))}
-                  {filteredConflicts.length === 0 && (
-                    <div className="empty-conflicts">
-                      No entitlement conflicts match this filter.
+                    <button
+                      className={simulationMode === 'assignment' ? 'active' : ''}
+                      onClick={() => {
+                        setSimulationMode('assignment');
+                        setSimulation(null);
+                      }}
+                    >
+                      Role / assignment
+                    </button>
+                  </div>
+                  <div className="permission-list">
+                    {(simulationMode === 'permission'
+                      ? removablePermissions
+                      : removableAssignments
+                    ).map((item) => (
+                      <button
+                        disabled={simulating}
+                        key={item}
+                        onClick={() => void runSimulation(item, simulationMode)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                  {simulation && (
+                    <div className="simulation-result">
+                      <div>
+                        <span>Current conflicts</span>
+                        <strong>{simulation.currentConflictCount}</strong>
+                      </div>
+                      <div>
+                        <span>Projected conflicts</span>
+                        <strong className="positive">{simulation.projectedConflictCount}</strong>
+                      </div>
+                      <div>
+                        <span>Risk reduction</span>
+                        <strong className="positive">{simulation.riskReductionPercent}%</strong>
+                      </div>
+                      <div>
+                        <span>Conflicts resolved</span>
+                        <strong className="positive">
+                          {simulation.currentConflictCount - simulation.projectedConflictCount}
+                        </strong>
+                      </div>
+                      <p>
+                        <Check size={15} />{' '}
+                        {simulation.resolvedConflicts.join(', ') || 'No conflict fully resolved'}
+                      </p>
+                      <section>
+                        <strong>Recommended remediation action</strong>
+                        <span>
+                          Revoke{' '}
+                          <b>
+                            {[
+                              ...simulation.removedPermissions,
+                              ...simulation.removedAssignments,
+                            ].join(', ')}
+                          </b>{' '}
+                          {simulation.resolvedConflicts.length > 0
+                            ? `to resolve ${simulation.resolvedConflicts.length} verified toxic combination${
+                                simulation.resolvedConflicts.length === 1 ? '' : 's'
+                              } while retaining ${simulation.businessAccessPreservedPercent}% of existing business access.`
+                            : 'does not fully resolve a toxic combination. Evaluate another matched privilege before submitting a change.'}
+                        </span>
+                        <small>
+                          Control recommendation: {selectedAccess?.conflicts[0]?.remediation}
+                        </small>
+                      </section>
+                      <section className="security-improvement">
+                        <strong>Projected security improvement</strong>
+                        <div className="outcome-grid">
+                          {simulation.securityOutcomes.map((outcome) => (
+                            <span key={outcome}>
+                              <ShieldCheck size={14} /> {outcome}
+                            </span>
+                          ))}
+                        </div>
+                        <small>
+                          Residual exposure: <b>{simulation.residualSeverity}</b>
+                          {simulation.protectedResources.length > 0 &&
+                            ` · Protected scopes: ${simulation.protectedResources.slice(0, 3).join(', ')}`}
+                        </small>
+                      </section>
                     </div>
                   )}
-                </div>
-              </article>
+                </article>
+              </div>
 
-              <article className="panel path" id="attack-path">
+              <article className="panel coverage-panel">
                 <div className="panel-title">
                   <div>
-                    <p>INTERACTIVE ATTACK PATH</p>
-                    <h2>Identity → high-value resource</h2>
+                    <p>CONNECTED EVIDENCE</p>
+                    <h2>Connected Platforms</h2>
                   </div>
-                  <span>{selectedAccess?.source ?? 'demo compatibility'}</span>
-                </div>
-                <AttackPathGraph
-                  paths={attackPathGraphPaths}
-                  selectedNode={selectedNode}
-                  onSelectNode={setSelectedNode}
-                />
-                <div className="path-insight">
-                  <Zap size={17} />
                   <span>
-                    {selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an
-                    effective-access path contributing to{' '}
-                    {selectedAccess?.conflicts[0]?.title ?? 'this investigation'}.
+                    {coverage?.connectedPlatforms ?? platformConflictCounts.length} connected
+                    platforms
                   </span>
                 </div>
-              </article>
-
-              <article className="panel simulator">
-                <div className="panel-title">
-                  <div>
-                    <p>WHAT-IF REMEDIATION</p>
-                    <h2>
-                      Simulate least privilege for {identityTypeLabel(selectedAccess?.identityType)}
-                    </h2>
-                  </div>
-                  <Sparkles size={19} />
+                <div className="coverage-grid">
+                  {connectorCoverageItems.map(
+                    ({
+                      id,
+                      platform,
+                      conflicts,
+                      identities,
+                      entitlements,
+                      criticalConflicts,
+                      status,
+                      syncMode,
+                      dataSource,
+                    }) => (
+                      <button
+                        className={`coverage-item ${status === 'CONNECTED' ? 'connected' : 'ready'}`}
+                        key={id}
+                        onClick={() => {
+                          setConnectorOnboardingStarted(false);
+                          setConnectorPlatform(platform);
+                        }}
+                      >
+                        <div className="coverage-card-heading">
+                          <PlatformIcon platform={platform} />
+                          <div className="coverage-card-actions">
+                            <span className="connector-status">
+                              <i /> {status.replaceAll('_', ' ')}
+                            </span>
+                            <Settings size={15} className="coverage-settings" />
+                          </div>
+                        </div>
+                        <strong>{platform}</strong>
+                        <small>{dataSource}</small>
+                        <span>
+                          {conflicts > 0 ? `${conflicts} matched conflicts` : 'Ready to configure'}
+                        </span>
+                        <small>
+                          {identities > 0
+                            ? `${identities} identities · ${entitlements} entitlements`
+                            : 'View configuration requirements'}
+                        </small>
+                        <small>
+                          {criticalConflicts} critical · {syncMode.replaceAll('_', ' ')}
+                        </small>
+                      </button>
+                    ),
+                  )}
                 </div>
-                <p className="muted">
-                  Select a privilege to calculate which toxic paths are prevented and which
-                  unrelated access remains. No live access is changed.
-                </p>
-                <div className="permission-list">
-                  {removablePermissions.map((permission) => (
-                    <button
-                      disabled={simulating}
-                      key={permission}
-                      onClick={() => void runSimulation(permission)}
-                    >
-                      {permission}
-                    </button>
-                  ))}
-                </div>
-                {simulation && (
-                  <div className="simulation-result">
-                    <div>
-                      <span>Current conflicts</span>
-                      <strong>{simulation.currentConflictCount}</strong>
-                    </div>
-                    <div>
-                      <span>Projected conflicts</span>
-                      <strong className="positive">{simulation.projectedConflictCount}</strong>
-                    </div>
-                    <div>
-                      <span>Access preserved</span>
-                      <strong>{simulation.preservedGrantCount}</strong>
-                    </div>
-                    <div>
-                      <span>Conflicts resolved</span>
-                      <strong className="positive">
-                        {simulation.currentConflictCount - simulation.projectedConflictCount}
-                      </strong>
-                    </div>
-                    <p>
-                      <Check size={15} />{' '}
-                      {simulation.resolvedConflicts.join(', ') || 'No conflict fully resolved'}
-                    </p>
-                    <section>
-                      <strong>Recommended remediation action</strong>
-                      <span>
-                        Revoke <b>{simulation.removedPermissions.join(', ')}</b>{' '}
-                        {simulation.resolvedConflicts.length > 0
-                          ? `to resolve ${simulation.resolvedConflicts.length} verified toxic combination${
-                              simulation.resolvedConflicts.length === 1 ? '' : 's'
-                            } while retaining ${simulation.preservedGrantCount} unrelated grants.`
-                          : 'does not fully resolve a toxic combination. Evaluate another matched privilege before submitting a change.'}
+                {coverage && (
+                  <div className="entitlement-stream">
+                    <div className="panel-title">
+                      <div>
+                        <p>LIVE ENTITLEMENT ACTIVITY</p>
+                        <h2>Changes entering privilege evaluation</h2>
+                      </div>
+                      <span className="live-indicator">
+                        <i /> Evaluated {new Date(coverage.evaluatedAt).toLocaleTimeString()}
                       </span>
-                      <small>
-                        Control recommendation: {selectedAccess?.conflicts[0]?.remediation}
-                      </small>
-                    </section>
+                    </div>
+                    {coverage.recentEntitlementEvents.slice(0, 8).map((event) => (
+                      <button
+                        key={event.id}
+                        onClick={() => {
+                          setSelectedId(event.identityId);
+                          selectWorkspaceView(event.createsConflict ? 'conflicts' : 'identities');
+                        }}
+                      >
+                        <span className={event.createsConflict ? 'event-risk' : 'event-safe'}>
+                          <i />
+                        </span>
+                        <span>
+                          <strong>{event.displayName}</strong>
+                          <small>
+                            {event.platform} · {identityTypeLabel(event.identityType)}
+                          </small>
+                        </span>
+                        <span>
+                          <strong>{event.permission}</strong>
+                          <small>via {event.assignment}</small>
+                        </span>
+                        <span>
+                          <small>{event.resource}</small>
+                        </span>
+                        <b>{event.createsConflict ? 'CONFLICT SIGNAL' : 'OBSERVED'}</b>
+                      </button>
+                    ))}
                   </div>
                 )}
               </article>
-            </div>
-
-            <article className="panel coverage-panel">
-              <div className="panel-title">
-                <div>
-                  <p>CONNECTED EVIDENCE</p>
-                  <h2>Connected Platforms</h2>
-                </div>
-                <span>{platformConflictCounts.length} active platforms</span>
-              </div>
-              <div className="coverage-grid">
-                {platformConflictCounts.map(({ platform, conflicts, identities }) => (
-                  <button
-                    className="coverage-item"
-                    key={platform}
-                    onClick={() => setConnectorPlatform(platform)}
-                  >
-                    <Cloud size={19} />
-                    <strong>{platform}</strong>
-                    <span>
-                      {conflicts > 0 ? `${conflicts} matched conflicts` : 'Ready to configure'}
-                    </span>
-                    <small>
-                      {identities > 0 ? `${identities} affected identities` : 'View requirements'}
-                    </small>
-                    <Settings size={15} className="coverage-settings" />
-                  </button>
-                ))}
-              </div>
-            </article>
-          </>
-        )}
-      </section>
+            </>
+          )}
+        </section>
       </div>
 
       <section
@@ -1519,11 +2097,20 @@ export default function DashboardClient() {
               </button>
             </div>
             <p>{selectedConnector.description}</p>
+            <span className="connector-category">{selectedConnector.category}</span>
             <h3>Required details</h3>
             <ul>
               {selectedConnector.requirements.map((requirement) => (
                 <li key={requirement}>
                   <Check size={15} /> {requirement}
+                </li>
+              ))}
+            </ul>
+            <h3>Evidence collected</h3>
+            <ul>
+              {selectedConnector.evidence.map((item) => (
+                <li key={item}>
+                  <ShieldCheck size={15} /> {item}
                 </li>
               ))}
             </ul>
@@ -1533,9 +2120,24 @@ export default function DashboardClient() {
                 <li key={step}>{step}</li>
               ))}
             </ol>
-            <div className="connector-action">
-              <Check size={16} /> Configuration requirements ready
-            </div>
+            <button
+              className="connector-action"
+              onClick={() => setConnectorOnboardingStarted(true)}
+            >
+              {connectorOnboardingStarted ? <Check size={16} /> : <Settings size={16} />}
+              {connectorOnboardingStarted
+                ? 'Onboarding checklist activated'
+                : 'Start secure onboarding'}
+            </button>
+            {connectorOnboardingStarted && (
+              <div className="connector-onboarding-notice">
+                <strong>Ready for connection validation</strong>
+                <span>
+                  Add the required values to local secret storage, then run a read-only connection
+                  test. Credentials are never submitted through this browser panel.
+                </span>
+              </div>
+            )}
             <small>
               Credentials are not collected in this demonstration. The production adapter stores
               secrets in the organization vault and validates read-only access.

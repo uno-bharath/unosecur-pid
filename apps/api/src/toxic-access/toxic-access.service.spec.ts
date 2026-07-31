@@ -88,5 +88,26 @@ describe('ToxicAccessService', () => {
     expect(result.projectedConflictCount).toBe(0);
     expect(result.resolvedConflicts).toEqual(['Create and approve conflict']);
     expect(result.preservedGrantCount).toBe(2);
+    expect(result.riskReductionPercent).toBe(100);
+    expect(result.businessAccessPreservedPercent).toBe(67);
+    expect(result.resolvedCriticalConflicts).toBe(1);
+  });
+
+  it('simulates removal of an originating role assignment', async () => {
+    const result = await service.simulate(identity.identityId, [], ['approver-role']);
+
+    expect(result.removedAssignments).toEqual(['approver-role']);
+    expect(result.projectedConflictCount).toBe(0);
+    expect(result.securityOutcomes).toContain('1 verified toxic path disrupted');
+  });
+
+  it('summarizes connected coverage and entitlement evidence', async () => {
+    const result = await service.getRealtimeCoverage();
+
+    expect(result.evidenceMode).toBe('CONNECTED');
+    expect(result.identitiesObserved).toBe(1);
+    expect(result.entitlementsObserved).toBe(3);
+    expect(result.activeConflicts).toBe(1);
+    expect(result.recentEntitlementEvents).toHaveLength(3);
   });
 });

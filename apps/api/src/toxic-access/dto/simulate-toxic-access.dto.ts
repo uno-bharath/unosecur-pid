@@ -1,9 +1,15 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString } from 'class-validator';
 
 export class SimulateToxicAccessDto {
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(100)
   @IsString({ each: true })
-  removePermissions!: string[];
+  removePermissions: string[] = [];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  removeAssignments: string[] = [];
 }
