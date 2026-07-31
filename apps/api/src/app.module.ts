@@ -13,6 +13,11 @@ import { RiskService } from './risk/risk.service';
 import { RuleCatalogService } from './risk/rule-catalog.service';
 import { ToxicAccessModule } from './toxic-access/toxic-access.module';
 
+const environmentBoolean = z.preprocess(
+  (value) => (typeof value === 'string' ? value.toLowerCase() === 'true' : value),
+  z.boolean(),
+);
+
 const environmentSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
   DATABASE_URL: z
@@ -24,6 +29,16 @@ const environmentSchema = z.object({
   NEO4J_PASSWORD: z.string().default('neo4j_dev_password'),
   OLLAMA_BASE_URL: z.string().url().default('http://127.0.0.1:11434'),
   OLLAMA_MODEL: z.string().default('llama3:8b-instruct-q4_K_M'),
+  CLICKHOUSE_ENABLED: environmentBoolean.default(false),
+  CLICKHOUSE_URL: z.string().url().default('http://127.0.0.1:8123'),
+  CLICKHOUSE_USERNAME: z.string().default('pid_readonly'),
+  CLICKHOUSE_PASSWORD: z.string().default(''),
+  CLICKHOUSE_DATABASE: z
+    .string()
+    .regex(/^[A-Za-z0-9_]+$/)
+    .default('unosecur_organization_replace_tenant_uno_id'),
+  CLICKHOUSE_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+  CLICKHOUSE_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(15),
 });
 
 @Module({

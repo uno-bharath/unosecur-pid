@@ -7,7 +7,11 @@ import {
 } from './custom-toxic-rule.service';
 import { CreateCustomToxicRuleDto } from './dto/create-custom-toxic-rule.dto';
 import { SimulateToxicAccessDto } from './dto/simulate-toxic-access.dto';
-import { ToxicAccessEvaluation, ToxicAccessSimulation } from './domain/toxic-access.types';
+import {
+  RealtimeCoverageSummary,
+  ToxicAccessEvaluation,
+  ToxicAccessSimulation,
+} from './domain/toxic-access.types';
 import { ToxicAccessService } from './toxic-access.service';
 
 @ApiTags('toxic-access')
@@ -52,9 +56,17 @@ export class ToxicAccessController {
   }
 
   @Get('identities')
-  @ApiOperation({ summary: 'List identities with deterministic entitlement conflicts' })
+  @ApiOperation({
+    summary: 'List all evaluated identities and deterministic entitlement conflicts',
+  })
   listConflictedIdentities(): Promise<ToxicAccessEvaluation[]> {
     return this.toxicAccessService.listConflictedIdentities();
+  }
+
+  @Get('coverage/realtime')
+  @ApiOperation({ summary: 'Get live connector coverage and entitlement-change evidence' })
+  getRealtimeCoverage(): Promise<RealtimeCoverageSummary> {
+    return this.toxicAccessService.getRealtimeCoverage();
   }
 
   @Get('identities/:id')
@@ -69,6 +81,10 @@ export class ToxicAccessController {
     @Param('id') id: string,
     @Body() input: SimulateToxicAccessDto,
   ): Promise<ToxicAccessSimulation> {
-    return this.toxicAccessService.simulate(id, input.removePermissions);
+    return this.toxicAccessService.simulate(
+      id,
+      input.removePermissions ?? [],
+      input.removeAssignments ?? [],
+    );
   }
 }

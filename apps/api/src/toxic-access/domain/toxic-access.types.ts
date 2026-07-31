@@ -89,9 +89,62 @@ export interface ToxicAccessEvaluation {
 export interface ToxicAccessSimulation {
   identityId: string;
   removedPermissions: string[];
+  removedAssignments: string[];
   currentConflictCount: number;
   projectedConflictCount: number;
   resolvedConflicts: string[];
   remainingConflicts: string[];
   preservedGrantCount: number;
+  businessAccessPreservedPercent: number;
+  riskReductionPercent: number;
+  resolvedCriticalConflicts: number;
+  resolvedHighConflicts: number;
+  attackPathsDisrupted: number;
+  protectedResources: string[];
+  controlsImproved: string[];
+  affectedPlatformsBefore: string[];
+  affectedPlatformsAfter: string[];
+  residualSeverity: ConflictSeverity | 'none';
+  securityOutcomes: string[];
+}
+
+export interface RealtimeConnectorCoverage {
+  id: string;
+  platform: string;
+  domain: 'CLOUD' | 'IDENTITY' | 'SUPPLY_CHAIN' | 'KUBERNETES' | 'SECRETS' | 'DATA';
+  status: 'CONNECTED' | 'READY_TO_CONNECT';
+  syncMode: 'EVENT_STREAM' | 'INCREMENTAL_POLL' | 'WEBHOOK' | 'API_SYNC';
+  identities: number;
+  entitlements: number;
+  conflicts: number;
+  criticalConflicts: number;
+  evaluatedAt: string;
+  dataSource: string;
+}
+
+export interface RealtimeEntitlementEvent {
+  id: string;
+  observedAt: string;
+  platform: string;
+  identityId: string;
+  displayName: string;
+  identityType: AccessIdentityType;
+  permission: string;
+  resource: string;
+  assignment: string;
+  createsConflict: boolean;
+}
+
+export interface RealtimeCoverageSummary {
+  evaluatedAt: string;
+  evidenceMode: 'DEMONSTRATION' | 'CONNECTED';
+  evidenceSource: string;
+  refreshIntervalSeconds: number;
+  connectedPlatforms: number;
+  availablePlatforms: number;
+  identitiesObserved: number;
+  entitlementsObserved: number;
+  activeConflicts: number;
+  connectors: RealtimeConnectorCoverage[];
+  recentEntitlementEvents: RealtimeEntitlementEvent[];
 }

@@ -178,6 +178,8 @@ Executive reporting connects technical evidence to:
 
 ### Phase 3 — Production data adapters and continuous evaluation
 
+- Current prototype: common real-time coverage contract, connector health and
+  readiness cards, platform evidence counts, and live entitlement activity feed.
 - Uno Entities, Events, Scoring, and Detect adapters.
 - AWS, Azure, GCP, Kubernetes, GitHub, Entra, Vault, and SaaS normalization.
 - Incremental entitlement updates rather than full rescans.

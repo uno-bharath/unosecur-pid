@@ -191,7 +191,11 @@ write_environment() {
 }
 
 compose() {
-  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+  if [ -f "${PROJECT_ROOT}/.env" ]; then
+    docker compose --env-file "${PROJECT_ROOT}/.env" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+  else
+    docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+  fi
 }
 
 show_urls() {
