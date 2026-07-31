@@ -26,16 +26,37 @@ export interface ExecutivePostureTrend {
   };
 }
 
+export interface ImmunityWindow {
+  days: number;
+  toxicIdentityChangePercent: number;
+  immunityGainPercent: number;
+}
+
 interface ExecutiveTrendChartProps {
   loading: boolean;
   range: number;
   trend: ExecutivePostureTrend | null;
+  immunityWindows?: ImmunityWindow[];
   onRangeChange: (days: number) => void;
 }
 
 const width = 840;
 const height = 285;
 const margin = { left: 44, right: 20, top: 24, bottom: 42 };
+const immunityPeriods = [7, 15, 30] as const;
+
+export function immunityGainFromToxicMovement(toxicIdentityChangePercent: number): number {
+  return Math.max(-100, Math.min(100, -toxicIdentityChangePercent));
+}
+
+export function toImmunityWindow(trend: ExecutivePostureTrend): ImmunityWindow {
+  const toxicIdentityChangePercent = trend.summary.toxicIdentityChangePercent;
+  return {
+    days: trend.periodDays,
+    toxicIdentityChangePercent,
+    immunityGainPercent: immunityGainFromToxicMovement(toxicIdentityChangePercent),
+  };
+}
 
 function buildSmoothPath(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return '';
@@ -47,10 +68,17 @@ function buildSmoothPath(points: Array<{ x: number; y: number }>): string {
   }, '');
 }
 
+function immunityTone(gain: number): 'gained' | 'lost' | 'flat' {
+  if (gain > 0) return 'gained';
+  if (gain < 0) return 'lost';
+  return 'flat';
+}
+
 export function ExecutiveTrendChart({
   loading,
   range,
   trend,
+  immunityWindows = [],
   onRangeChange,
 }: ExecutiveTrendChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -89,6 +117,21 @@ export function ExecutiveTrendChart({
     chart && activeIndex !== null ? chart.points[activeIndex] : chart?.points.at(-1);
   const improving = (trend?.summary.toxicIdentityChange ?? 0) <= 0;
   const DirectionIcon = improving ? ArrowDownRight : ArrowUpRight;
+  const selectedImmunityGain = immunityGainFromToxicMovement(
+    trend?.summary.toxicIdentityChangePercent ?? 0,
+  );
+  const windows = immunityPeriods.map((days) => {
+    const match = immunityWindows.find((window) => window.days === days);
+    if (match) return match;
+    if (trend?.periodDays === days) {
+      return toImmunityWindow(trend);
+    }
+    return {
+      days,
+      toxicIdentityChangePercent: 0,
+      immunityGainPercent: 0,
+    };
+  });
 
   return (
     <article className="panel executive-trend">
@@ -110,6 +153,56 @@ export function ExecutiveTrendChart({
           ))}
         </div>
       </div>
+
+      <section className="immunity-gain" aria-label="Enterprise immunity gain">
+        <div className="immunity-gain-header">
+          <div>
+            <p>ENTERPRISE IMMUNITY GAIN</p>
+            <h3>Posture improvement from toxic identity movement</h3>
+          </div>
+          <span>
+            Selected {range}D · {selectedImmunityGain > 0 ? '+' : ''}
+            {selectedImmunityGain}%
+          </span>
+        </div>
+        <div className="immunity-gain-grid">
+          {windows.map((window) => {
+            const tone = immunityTone(window.immunityGainPercent);
+            const WindowIcon =
+              window.immunityGainPercent > 0
+                ? ArrowDownRight
+                : window.immunityGainPercent < 0
+                  ? ArrowUpRight
+                  : ShieldCheck;
+            return (
+              <button
+                type="button"
+                key={window.days}
+                className={`immunity-card ${tone} ${range === window.days ? 'active' : ''}`}
+                onClick={() => onRangeChange(window.days)}
+              >
+                <span className="immunity-period">{window.days} days</span>
+                <strong>
+                  <WindowIcon size={16} aria-hidden />
+                  {window.immunityGainPercent > 0 ? '+' : ''}
+                  {window.immunityGainPercent}%
+                </strong>
+                <small>
+                  {tone === 'gained'
+                    ? 'Immunity gained'
+                    : tone === 'lost'
+                      ? 'Immunity eroded'
+                      : 'No net change'}
+                </small>
+                <em>
+                  Toxic identities {window.toxicIdentityChangePercent > 0 ? '+' : ''}
+                  {window.toxicIdentityChangePercent}%
+                </em>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="trend-summary">
         <div>

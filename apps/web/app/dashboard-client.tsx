@@ -46,7 +46,12 @@ import { VscAzure } from 'react-icons/vsc';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { AttackPathGraph } from './components/attack-path-graph';
-import { ExecutivePostureTrend, ExecutiveTrendChart } from './components/executive-trend-chart';
+import {
+  ExecutivePostureTrend,
+  ExecutiveTrendChart,
+  ImmunityWindow,
+  toImmunityWindow,
+} from './components/executive-trend-chart';
 import { VisualRuleBuilder } from './components/visual-rule-builder';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -620,6 +625,7 @@ export default function DashboardClient() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [trendRange, setTrendRange] = useState(30);
   const [postureTrend, setPostureTrend] = useState<ExecutivePostureTrend | null>(null);
+  const [immunityWindows, setImmunityWindows] = useState<ImmunityWindow[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -674,6 +680,31 @@ export default function DashboardClient() {
     [trendRange],
   );
 
+  const loadImmunityWindows = useCallback(async () => {
+    try {
+      const responses = await Promise.all(
+        [7, 15, 30].map((days) =>
+          fetch(`${apiUrl}/risk/executive-trend?days=${days}`, { cache: 'no-store' }),
+        ),
+      );
+      const windows = await Promise.all(
+        responses.map(async (response, index) => {
+          if (!response.ok) {
+            return {
+              days: [7, 15, 30][index],
+              toxicIdentityChangePercent: 0,
+              immunityGainPercent: 0,
+            } satisfies ImmunityWindow;
+          }
+          return toImmunityWindow((await response.json()) as ExecutivePostureTrend);
+        }),
+      );
+      setImmunityWindows(windows);
+    } catch {
+      setImmunityWindows([]);
+    }
+  }, []);
+
   const refreshInFlight = useRef(false);
   const refreshLiveData = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -685,6 +716,7 @@ export default function DashboardClient() {
         fetch(`${apiUrl}/risk/summary`, { cache: 'no-store' }),
         fetch(`${apiUrl}/toxic-access/identities`, { cache: 'no-store' }),
         fetch(`${apiUrl}/risk/executive-trend?days=${trendRange}`, { cache: 'no-store' }),
+        loadImmunityWindows(),
       ]);
       if (!summaryResponse.ok) throw new Error(`Identity API returned ${summaryResponse.status}`);
       if (!accessResponse.ok) throw new Error(`Toxic Access API returned ${accessResponse.status}`);
@@ -705,7 +737,7 @@ export default function DashboardClient() {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [trendRange]);
+  }, [loadImmunityWindows, trendRange]);
 
   useEffect(() => {
     void loadSummary();
@@ -721,6 +753,10 @@ export default function DashboardClient() {
   useEffect(() => {
     void loadTrend();
   }, [loadTrend]);
+
+  useEffect(() => {
+    void loadImmunityWindows();
+  }, [loadImmunityWindows]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -1505,6 +1541,7 @@ export default function DashboardClient() {
                   )}
                   <ExecutiveTrendChart
                     loading={trendLoading}
+                    immunityWindows={immunityWindows}
                     onRangeChange={setTrendRange}
                     range={trendRange}
                     trend={postureTrend}

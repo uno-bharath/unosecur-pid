@@ -1841,6 +1841,120 @@ kbd {
   margin-top: 5px;
 }
 
+.immunity-gain {
+  background: linear-gradient(145deg, #f8fbff, #f3f7ff);
+  border: 1px solid #e2e8fb;
+  border-radius: 14px;
+  margin: 18px 0 4px;
+  padding: 16px 18px;
+}
+
+.immunity-gain-header {
+  align-items: flex-end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.immunity-gain-header p {
+  color: var(--brand);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  margin: 0 0 4px;
+}
+
+.immunity-gain-header h3 {
+  font: 700 15px 'Manrope', sans-serif;
+  margin: 0;
+}
+
+.immunity-gain-header > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.immunity-gain-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.immunity-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.immunity-card:hover {
+  border-color: #bac9f7;
+  box-shadow: 0 10px 22px rgba(47, 97, 237, 0.1);
+  transform: translateY(-2px);
+}
+
+.immunity-card.active {
+  border-color: #8eacf5;
+  box-shadow: 0 0 0 3px rgba(47, 97, 237, 0.12);
+}
+
+.immunity-period {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.immunity-card strong {
+  align-items: center;
+  display: inline-flex;
+  font: 700 24px 'Manrope', sans-serif;
+  gap: 6px;
+}
+
+.immunity-card small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.immunity-card em {
+  color: #8a93a8;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.immunity-card.gained strong {
+  color: var(--success);
+}
+
+.immunity-card.lost strong {
+  color: var(--critical);
+}
+
+.immunity-card.flat strong {
+  color: var(--muted);
+}
+
+.immunity-card.gained {
+  background: linear-gradient(145deg, #fff, #f0faf5);
+}
+
+.immunity-card.lost {
+  background: linear-gradient(145deg, #fff, #fff5f7);
+}
+
 .trend-ranges {
   background: #f3f5fa;
   border-radius: 9px;
@@ -3651,7 +3765,8 @@ h2 {
   .overview-grid,
   .pid-intelligence,
   .overview-quick-actions,
-  .hotspot-grid {
+  .hotspot-grid,
+  .immunity-gain-grid {
     grid-template-columns: 1fr;
   }
   .pid-flow-graphic {
@@ -3700,6 +3815,10 @@ h2 {
   }
   h1 {
     font-size: 23px;
+  }
+  .immunity-gain-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .executive-trend-header {
     align-items: stretch;
