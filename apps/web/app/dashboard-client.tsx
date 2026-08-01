@@ -1834,7 +1834,9 @@ export default function DashboardClient() {
                         className="finding"
                         key={conflict.ruleId}
                         onClick={() => {
-                          setSelectedNode(conflict.evidence[0]?.accessPath.at(-1) ?? null);
+                          // Prefer the path start so the blue flow paints identity → resource.
+                          const path = conflict.evidence[0]?.accessPath.filter(Boolean) ?? [];
+                          setSelectedNode(path[0] ?? path.at(-1) ?? null);
                           selectWorkspaceView('attack-paths');
                         }}
                       >
@@ -1888,12 +1890,18 @@ export default function DashboardClient() {
                       </button>
                     </div>
                   </div>
-                  <AttackPathGraph
-                    direction={pathDirection}
-                    paths={attackPathGraphPaths}
-                    selectedNode={selectedNode}
-                    onSelectNode={setSelectedNode}
-                  />
+                  {/* Mount only when visible — React Flow breaks if initialized under display:none. */}
+                  {activeView === 'attack-paths' ? (
+                    <AttackPathGraph
+                      key={`${pathDirection}-${selectedIdentity?.id ?? 'none'}`}
+                      direction={pathDirection}
+                      paths={attackPathGraphPaths}
+                      selectedNode={selectedNode}
+                      onSelectNode={setSelectedNode}
+                    />
+                  ) : (
+                    <div className="attack-graph-canvas attack-graph-canvas-placeholder" />
+                  )}
                   <div className="path-insight">
                     <Zap size={17} />
                     <span>

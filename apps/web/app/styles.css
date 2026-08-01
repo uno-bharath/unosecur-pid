@@ -1312,8 +1312,8 @@ kbd {
   border-radius: 18px;
   box-shadow: 0 18px 40px rgba(37, 53, 95, 0.06);
   display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   margin: 22px 0 8px;
   min-height: 360px;
   overflow: hidden;
@@ -1334,11 +1334,18 @@ kbd {
   margin: 0 0 16px;
 }
 
+.pid-integrations {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
+
 .pid-integration-list {
   display: grid;
   gap: 10px;
   max-width: 320px;
   position: relative;
+  width: 100%;
   z-index: 1;
 }
 
@@ -1420,19 +1427,7 @@ kbd {
 }
 
 .pid-flow-graphic {
-  background:
-    radial-gradient(ellipse at 30% 50%, rgba(47, 97, 237, 0.2), transparent 55%),
-    radial-gradient(ellipse at 70% 40%, rgba(128, 213, 104, 0.14), transparent 50%);
-  border-radius: 999px;
-  filter: blur(1px);
-  height: 200px;
-  opacity: 0.9;
-  pointer-events: none;
-  position: absolute;
-  right: 40%;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 240px;
+  display: none;
 }
 
 .pid-orb-panel {
@@ -2757,16 +2752,30 @@ h2 {
   background: var(--critical);
 }
 
+.attack-graph-hint {
+  background: #eef2ff;
+  color: #3b4d8a;
+  font-weight: 600;
+}
+
+.attack-graph-hint::before {
+  display: none !important;
+}
+
 .attack-graph-canvas {
   background: #f7f8fc;
   border: 1px solid #edf0f6;
   border-radius: 12px;
-  height: clamp(330px, 46vw, 460px);
+  height: clamp(360px, 48vw, 520px);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   position: relative;
   width: 100%;
+}
+
+.attack-graph-canvas-placeholder {
+  min-height: clamp(360px, 48vw, 520px);
 }
 
 .attack-graph-canvas .react-flow {
@@ -2777,49 +2786,193 @@ h2 {
   width: 100%;
 }
 
-.attack-graph-node {
-  background: white;
-  border: 1px solid #dfe4ee;
-  border-radius: 10px;
-  box-shadow: 0 8px 18px rgba(37, 53, 95, 0.06);
-  color: #4c576e;
-  font-size: 11px;
-  font-weight: 600;
-  max-width: 180px;
-  min-width: 120px;
-  padding: 12px 14px;
-  text-align: center;
-  white-space: normal;
+.attack-graph-canvas .react-flow__node {
+  transition: transform 280ms ease;
 }
 
-.attack-graph-node.tone-identity {
-  border-color: #b7c8ff;
+/* Column captions above each column (AGENT / LAMBDAS / IAM ROLES style). */
+.apx-col-header {
+  color: #94a0b5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  width: 208px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.apx-node {
+  align-items: center;
+  animation: attack-node-in 220ms ease;
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(37, 53, 95, 0.08);
+  color: #2b3652;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  height: 62px;
+  overflow: hidden;
+  padding: 0 14px 0 16px;
+  position: relative;
+  width: 208px;
+}
+
+@keyframes attack-node-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Colored left accent bar. */
+.apx-accent {
+  border-radius: 12px 0 0 12px;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 5px;
+}
+
+.apx-icon {
+  align-items: center;
+  border-radius: 9px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.apx-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apx-expand {
+  align-items: center;
+  background: #f2f5fb;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  color: #5b6784;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  line-height: 1;
+  width: 30px;
+}
+
+.apx-expand:hover {
+  background: #e7edf8;
   color: var(--brand-deep);
 }
 
-.attack-graph-node.tone-warning {
-  background: #fff8f0;
-  border-color: #f3d2a8;
-  color: #c7771d;
+.apx-count {
+  font-size: 9px;
+  font-weight: 700;
 }
 
-.attack-graph-node.tone-danger {
-  background: #fff2f4;
-  border-color: #f7c7d0;
+.apx-dot {
+  background: #cbd3e1;
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 7px;
+  width: 7px;
+}
+
+/* Tone accents / icon colors. */
+.apx-node.tone-identity .apx-accent {
+  background: #7c5cff;
+}
+.apx-node.tone-identity .apx-icon {
+  background: #efeaff;
+  color: #6b46f0;
+}
+
+.apx-node.tone-role .apx-accent {
+  background: #3f7bff;
+}
+.apx-node.tone-role .apx-icon {
+  background: #e9f0ff;
+  color: #2f61ed;
+}
+
+.apx-node.tone-warning .apx-accent {
+  background: #f6a83c;
+}
+.apx-node.tone-warning .apx-icon {
+  background: #fff3e2;
+  color: #d97b1a;
+}
+
+.apx-node.tone-danger .apx-accent {
+  background: #f0566f;
+}
+.apx-node.tone-danger .apx-icon {
+  background: #ffe9ee;
   color: var(--critical);
 }
 
-.attack-graph-node.selected {
-  box-shadow: 0 0 0 3px var(--brand-soft);
+.apx-node.selected,
+.apx-node.expanded {
   border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft), 0 10px 24px rgba(37, 53, 95, 0.1);
 }
 
-.attack-graph-handle {
-  background: #9aa6bf !important;
+.apx-node.on-path:not(.selected):not(.expanded) {
+  border-color: #9db4f7;
+  box-shadow: 0 0 0 2px rgba(47, 97, 237, 0.18), 0 10px 24px rgba(37, 53, 95, 0.08);
+}
+
+.attack-graph-canvas .react-flow__edge.apx-edge path {
+  transition: stroke 200ms ease;
+}
+
+.attack-graph-canvas .react-flow__edge.apx-edge.active .react-flow__edge-path {
+  stroke: #2f61ed;
+}
+
+/* Glowing particle that flows along every edge, source -> target. */
+.apx-flow-particle {
+  fill: #94a2bd;
+  filter: drop-shadow(0 0 3px rgba(148, 162, 189, 0.9));
+  will-change: transform;
+}
+
+.apx-flow-particle.active {
+  fill: #2f61ed;
+  filter: drop-shadow(0 0 4px rgba(47, 97, 237, 0.95));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apx-flow-particle {
+    display: none;
+  }
+}
+
+.apx-handle {
+  background: #b7c0d2 !important;
   border: none !important;
-  height: 7px !important;
-  opacity: 0.7;
-  width: 7px !important;
+  height: 6px !important;
+  opacity: 0.6;
+  width: 6px !important;
 }
 
 .nodes {
@@ -3932,6 +4085,12 @@ h2 {
   }
   .pid-flow-graphic {
     display: none;
+  }
+  .pid-integrations {
+    align-items: stretch;
+  }
+  .pid-orb-panel {
+    align-items: center;
   }
   .trend-summary {
     grid-template-columns: repeat(2, 1fr);
