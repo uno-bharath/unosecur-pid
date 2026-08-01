@@ -1338,6 +1338,8 @@ kbd {
   align-items: center;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .pid-integration-list {
@@ -1430,12 +1432,56 @@ kbd {
   display: none;
 }
 
+.pid-flow-connectors {
+  height: 62%;
+  left: 50%;
+  max-width: 360px;
+  opacity: 0.85;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32%;
+  z-index: 0;
+}
+
+.pid-flow-connectors svg {
+  height: 100%;
+  overflow: visible;
+  width: 100%;
+}
+
+.pid-flow-line {
+  fill: none;
+  stroke: url(#pidFlowStroke);
+  stroke-dasharray: 5 12;
+  stroke-linecap: round;
+  stroke-width: 2;
+  animation: pid-flow-move 2.6s linear infinite;
+}
+
+.pid-flow-line-delay-1 {
+  animation-delay: 0.6s;
+}
+
+.pid-flow-line-delay-2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes pid-flow-move {
+  to {
+    stroke-dashoffset: -34;
+  }
+}
+
 .pid-orb-panel {
   align-items: center;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
   text-align: center;
+  z-index: 1;
 }
 
 .pid-orb {
@@ -3588,6 +3634,128 @@ h2 {
   transform: translateX(0);
 }
 
+.attack-path-trigger {
+  align-items: center;
+  align-self: flex-start;
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 9px 14px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.attack-path-trigger:hover {
+  box-shadow: 0 10px 22px rgba(47, 97, 237, 0.24);
+  transform: translateY(-1px);
+}
+
+.attack-path-backdrop {
+  background: rgba(11, 27, 58, 0.28);
+  border: 0;
+  bottom: 0;
+  cursor: default;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 58;
+}
+
+.attack-path-drawer {
+  background: #fff;
+  border-left: 1px solid var(--line);
+  bottom: 0;
+  box-shadow: -20px 0 50px rgba(31, 46, 90, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  padding: 24px 26px;
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  top: 0;
+  transform: translateX(105%);
+  transition: transform 220ms ease;
+  width: min(820px, 46vw);
+  z-index: 62;
+}
+
+.attack-path-drawer.open {
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.attack-path-drawer-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.attack-path-drawer-header p {
+  color: var(--brand);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  margin: 0 0 5px;
+}
+
+.attack-path-drawer-header h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.attack-path-drawer-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.attack-path-drawer-close {
+  background: #f2f4f8;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  height: 34px;
+  place-items: center;
+  width: 34px;
+}
+
+.attack-path-drawer .attack-graph-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.attack-path-drawer .attack-graph-canvas {
+  flex: 1;
+  height: auto;
+  min-height: 320px;
+}
+
+@media (max-width: 1000px) {
+  .attack-path-drawer {
+    width: min(640px, 94vw);
+  }
+}
+
 .connector-header {
   align-items: flex-start;
   border-bottom: 1px solid var(--line);
@@ -4043,6 +4211,7 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .pid-orb-ring,
   .pid-orb-particles,
+  .pid-flow-line,
   .overview-metrics .metric,
   .pid-intelligence,
   .live-posture > button.refreshing svg,
@@ -4083,7 +4252,8 @@ h2 {
   .window-analytics {
     grid-template-columns: 1fr;
   }
-  .pid-flow-graphic {
+  .pid-flow-graphic,
+  .pid-flow-connectors {
     display: none;
   }
   .pid-integrations {

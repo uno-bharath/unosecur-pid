@@ -118,16 +118,20 @@ delivery phases are documented in
 
 ## Conflict catalogue
 
-The catalogue currently contains 14 deterministic rules covering:
+The catalogue currently contains 17 deterministic rules (14 critical and 3
+high) covering:
 
 - Financial and identity-administration separation of duties.
-- AWS privilege delegation, audit tampering, data movement, standing
-  credentials, and KMS lifecycle abuse.
-- Kubernetes RBAC escalation, workload creation, and secret access.
+- AWS privilege delegation, unrestricted administration and role escalation,
+  audit tampering and suppression, data movement, standing credentials, and
+  KMS lifecycle abuse.
+- Kubernetes RBAC escalation, cluster administration, workload creation, and
+  secret access.
 - GitHub administration, workflow control, and branch-protection bypass.
 - Entra application registration, credential management, and tenant consent.
 - Vault policy and token issuance.
-- Cross-platform CI/CD, secret, cloud, backup, and production-control paths.
+- Cross-platform CI/CD, secret, cloud, backup, and production-control paths,
+  including PostgreSQL-to-GCP database extraction.
 
 Rules are stored in
 [`apps/api/src/toxic-access/rules/toxic-combinations.json`](apps/api/src/toxic-access/rules/toxic-combinations.json).
@@ -136,12 +140,12 @@ Rules are stored in
 
 | Required capability                      | Status   | Implementation                                                       |
 | ---------------------------------------- | -------- | -------------------------------------------------------------------- |
-| At least five defined toxic rules        | Complete | 14 version-controlled deterministic rules                            |
+| At least five defined toxic rules        | Complete | 17 version-controlled deterministic rules                            |
 | Scan identities for combinations         | Complete | Provider-neutral effective-grant evaluation                          |
 | Identity, rule, and permission evidence  | Complete | Toxic Access API and identity investigation                          |
 | Risk narrative and attack scenario       | Complete | Business impact plus evidence-grounded Copilot explanation           |
 | Critical, high, and medium severity      | Complete | Rule-defined severity with UI filtering                              |
-| At least one cloud permission model      | Complete | AWS IAM/KMS plus Kubernetes, GitHub, Entra, Vault, GCP, and others   |
+| At least one cloud permission model      | Complete | AWS IAM/KMS plus Kubernetes, GitHub, Entra, Vault, GCP, and PostgreSQL |
 | Remediation suggestions                  | Complete | Rule remediation and permission-removal simulation                   |
 | Cross-platform detection                 | Complete | Minimum-platform and platform-specific rule constraints              |
 | Custom rule authoring interface          | Complete | Visual builder, evidence preview, draft lifecycle, and publication   |

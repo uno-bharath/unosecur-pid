@@ -621,6 +621,7 @@ export default function DashboardClient() {
     [],
   );
   const [pathDirection, setPathDirection] = useState<AttackPathDirection>('forward');
+  const [attackPathDrawerOpen, setAttackPathDrawerOpen] = useState(false);
   const [simulation, setSimulation] = useState<ToxicAccessSimulation | null>(null);
   const [coverage, setCoverage] = useState<RealtimeCoverageSummary | null>(null);
   const [simulationMode, setSimulationMode] = useState<'permission' | 'assignment'>('permission');
@@ -777,6 +778,15 @@ export default function DashboardClient() {
   useEffect(() => {
     document.title = `${workspaceCopy[activeView].title} · UnoSecur PID`;
   }, [activeView]);
+
+  useEffect(() => {
+    if (!attackPathDrawerOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAttackPathDrawerOpen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [attackPathDrawerOpen]);
 
   useEffect(() => {
     void loadTrend();
@@ -1000,6 +1010,20 @@ export default function DashboardClient() {
   const metrics = summary
     ? [
         {
+          label: 'Affected platforms',
+          value: affectedPlatforms,
+          Icon: GitBranch,
+          tone: 'accent',
+          target: 'coverage' as WorkspaceView,
+        },
+        {
+          label: 'Identities evaluated',
+          value: coverage?.identitiesObserved ?? displayIdentities.length,
+          Icon: Activity,
+          tone: 'neutral',
+          target: 'identities' as WorkspaceView,
+        },
+        {
           label: 'Toxic conflicts',
           value: totalConflicts,
           Icon: ShieldAlert,
@@ -1013,20 +1037,6 @@ export default function DashboardClient() {
           tone: 'critical-strong',
           target: 'conflicts' as WorkspaceView,
           severity: 'critical' as const,
-        },
-        {
-          label: 'Affected platforms',
-          value: affectedPlatforms,
-          Icon: GitBranch,
-          tone: 'accent',
-          target: 'coverage' as WorkspaceView,
-        },
-        {
-          label: 'Identities evaluated',
-          value: coverage?.identitiesObserved ?? displayIdentities.length,
-          Icon: Activity,
-          tone: 'neutral',
-          target: 'identities' as WorkspaceView,
         },
       ]
     : [];
@@ -1122,6 +1132,26 @@ export default function DashboardClient() {
       ).length,
     }))
     .sort((left, right) => right.conflicts - left.conflicts);
+  const coveragePlatforms = (() => {
+    const withConflicts = platformConflictCounts.filter(
+      (item) => item.platform !== 'JENKINS',
+    );
+    const jenkins = platformConflictCounts.find((item) => item.platform === 'JENKINS') ?? {
+      platform: 'JENKINS',
+      identities: 0,
+    };
+    return [
+      ...withConflicts.slice(0, 6),
+      { ...jenkins, conflicts: 0 },
+    ];
+  })();
+  const flowConnectorLines = coveragePlatforms
+    .map((item, index) => ({ ...item, index }))
+    .filter((item) => item.conflicts > 0)
+    .map((item) => ({
+      platform: item.platform,
+      sourceY: ((item.index + 0.5) / coveragePlatforms.length) * 160,
+    }));
   const connectorCoverageItems = Object.keys(connectorGuides).map((platform, index) => {
     const live = coverage?.connectors.find(
       (connector) => connector.platform.toUpperCase() === platform,
@@ -1285,42 +1315,46 @@ export default function DashboardClient() {
               <h1>{viewCopy.title}</h1>
               <span>{viewCopy.description}</span>
             </div>
-            <div className="search-shell">
-              <label className="search">
-                <Search size={18} />
-                <input
-                  aria-label="Search identities, rules, permissions and platforms"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search identities, rules, permissions…"
-                  ref={searchInputRef}
-                  value={searchQuery}
-                />
-                <kbd>⌘ K</kbd>
-              </label>
-              {searchQuery.trim() && (
-                <div className="search-results">
-                  {searchResults.map(({ evaluation, conflict }) => (
-                    <button
-                      key={`${evaluation.identityId}-${conflict?.ruleId ?? 'identity'}`}
-                      onClick={() => openSearchResult(evaluation, conflict)}
-                    >
-                      <span>
-                        <strong>{evaluation.displayName}</strong>
-                        <small>
-                          {identityTypeLabel(evaluation.identityType)} · {evaluation.provider}
-                        </small>
-                      </span>
-                      <span>
-                        {conflict?.title ?? 'Identity profile'}
-                        <small>{conflict?.ruleId ?? 'View effective access'}</small>
-                      </span>
-                      <ChevronRight size={16} />
-                    </button>
-                  ))}
-                  {searchResults.length === 0 && <p>No matching identity, rule or permission.</p>}
-                </div>
-              )}
-            </div>
+            {activeView !== 'overview' && (
+              <div className="search-shell">
+                <label className="search">
+                  <Search size={18} />
+                  <input
+                    aria-label="Search identities, rules, permissions and platforms"
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search identities, rules, permissions…"
+                    ref={searchInputRef}
+                    value={searchQuery}
+                  />
+                  <kbd>⌘ K</kbd>
+                </label>
+                {searchQuery.trim() && (
+                  <div className="search-results">
+                    {searchResults.map(({ evaluation, conflict }) => (
+                      <button
+                        key={`${evaluation.identityId}-${conflict?.ruleId ?? 'identity'}`}
+                        onClick={() => openSearchResult(evaluation, conflict)}
+                      >
+                        <span>
+                          <strong>{evaluation.displayName}</strong>
+                          <small>
+                            {identityTypeLabel(evaluation.identityType)} · {evaluation.provider}
+                          </small>
+                        </span>
+                        <span>
+                          {conflict?.title ?? 'Identity profile'}
+                          <small>{conflict?.ruleId ?? 'View effective access'}</small>
+                        </span>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                    {searchResults.length === 0 && (
+                      <p>No matching identity, rule or permission.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </header>
 
           {loading && (
@@ -1385,16 +1419,44 @@ export default function DashboardClient() {
                     className={`pid-intelligence ${refreshing ? 'is-refreshing' : ''}`}
                     aria-label="Privilege Intelligence and Detection"
                   >
+                    <div className="pid-flow-connectors" aria-hidden>
+                      <svg viewBox="0 0 220 160" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="pidFlowStroke" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#2f61ed" stopOpacity="0" />
+                            <stop offset="45%" stopColor="#2f61ed" stopOpacity="0.55" />
+                            <stop offset="100%" stopColor="#80d568" stopOpacity="0.85" />
+                          </linearGradient>
+                          <marker
+                            id="pidFlowArrow"
+                            markerWidth="7"
+                            markerHeight="7"
+                            refX="5"
+                            refY="3"
+                            orient="auto"
+                          >
+                            <path d="M0,0 L6,3 L0,6 Z" fill="#5a8f4f" />
+                          </marker>
+                        </defs>
+                        {flowConnectorLines.map((line, index) => (
+                          <path
+                            key={line.platform}
+                            className="pid-flow-line"
+                            style={{ animationDelay: `${index * 0.3}s` }}
+                            d={`M4,${line.sourceY} C90,${line.sourceY} 130,80 214,80`}
+                            markerEnd="url(#pidFlowArrow)"
+                          />
+                        ))}
+                      </svg>
+                    </div>
                     <div className="pid-integrations">
                       <div className="pid-section-heading">
                         <h3>Platform coverage</h3>
                       </div>
                       <div className="pid-integration-list">
-                        {platformConflictCounts
-                          .slice(0, 6)
-                          .map(({ platform, conflicts, identities }) => {
+                        {coveragePlatforms.map(({ platform, conflicts, identities }) => {
                             const maxConflicts = Math.max(
-                              ...platformConflictCounts.map((item) => item.conflicts),
+                              ...coveragePlatforms.map((item) => item.conflicts),
                               1,
                             );
                             return (
@@ -1590,56 +1652,52 @@ export default function DashboardClient() {
                     </article>
                   </div>
 
-                  <article className="panel overview-hotspots">
-                    <div className="panel-title">
-                      <div>
-                        <p>PRIORITY HOTSPOTS</p>
-                        <h2>Identities needing attention first</h2>
-                      </div>
-                      <button
-                        type="button"
-                        className="text-link"
-                        onClick={() => selectWorkspaceView('identities')}
-                      >
-                        View all <ChevronRight size={14} />
-                      </button>
-                    </div>
-                    <div className="hotspot-grid">
-                      {displayIdentities.slice(0, 4).map((identity) => {
-                        const evaluation = accessEvaluations.find(
-                          ({ identityId }) => identityId === identity.id,
-                        );
-                        const conflictCount = evaluation?.summary.total ?? 0;
-                        return (
-                          <button
-                            key={identity.id}
-                            type="button"
-                            className="hotspot-card"
-                            onClick={() => {
-                              selectIdentity(identity);
-                              selectWorkspaceView('identities');
-                            }}
-                          >
-                            <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
-                            <div className="hotspot-copy">
-                              <strong>{identity.name}</strong>
-                              <small>
-                                {identity.department} · {identityTypeLabel(identity.type)}
-                              </small>
-                              <span>
-                                {evaluation?.conflicts[0]?.title ?? 'No toxic combination detected'}
-                              </span>
-                            </div>
-                            <div className={`hotspot-score ${conflictCount > 2 ? 'hot' : ''}`}>
-                              {conflictCount}
-                              <small>conflicts</small>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </article>
                 </>
+              )}
+
+              {activeView === 'identities' && (
+                <article className="panel overview-hotspots identities-hotspots">
+                  <div className="panel-title">
+                    <div>
+                      <p>PRIORITY HOTSPOTS</p>
+                      <h2>Identities needing attention first</h2>
+                    </div>
+                  </div>
+                  <div className="hotspot-grid">
+                    {displayIdentities.slice(0, 4).map((identity) => {
+                      const evaluation = accessEvaluations.find(
+                        ({ identityId }) => identityId === identity.id,
+                      );
+                      const conflictCount = evaluation?.summary.total ?? 0;
+                      return (
+                        <button
+                          key={identity.id}
+                          type="button"
+                          className="hotspot-card"
+                          onClick={() => {
+                            selectIdentity(identity);
+                            selectWorkspaceView('identities');
+                          }}
+                        >
+                          <div className="avatar">{identity.name.slice(0, 2).toUpperCase()}</div>
+                          <div className="hotspot-copy">
+                            <strong>{identity.name}</strong>
+                            <small>
+                              {identity.department} · {identityTypeLabel(identity.type)}
+                            </small>
+                            <span>
+                              {evaluation?.conflicts[0]?.title ?? 'No toxic combination detected'}
+                            </span>
+                          </div>
+                          <div className={`hotspot-score ${conflictCount > 2 ? 'hot' : ''}`}>
+                            {conflictCount}
+                            <small>conflicts</small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
               )}
 
               <div className="workspace-grid">
@@ -1731,6 +1789,16 @@ export default function DashboardClient() {
                       <small>CONFLICTS</small>
                     </div>
                   </div>
+
+                  {activeView === 'identities' && (
+                    <button
+                      type="button"
+                      className="attack-path-trigger"
+                      onClick={() => setAttackPathDrawerOpen(true)}
+                    >
+                      <Workflow size={16} /> View attack path
+                    </button>
+                  )}
 
                   {selectedAccess && selectedAccess.identityType !== 'HUMAN' && (
                     <div className="nhi-context">
@@ -1837,7 +1905,11 @@ export default function DashboardClient() {
                           // Prefer the path start so the blue flow paints identity → resource.
                           const path = conflict.evidence[0]?.accessPath.filter(Boolean) ?? [];
                           setSelectedNode(path[0] ?? path.at(-1) ?? null);
-                          selectWorkspaceView('attack-paths');
+                          if (activeView === 'identities') {
+                            setAttackPathDrawerOpen(true);
+                          } else {
+                            selectWorkspaceView('attack-paths');
+                          }
                         }}
                       >
                         <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
@@ -2151,6 +2223,81 @@ export default function DashboardClient() {
           type="button"
         />
       )}
+
+      {attackPathDrawerOpen && (
+        <button
+          aria-label="Close attack path"
+          className="attack-path-backdrop"
+          onClick={() => setAttackPathDrawerOpen(false)}
+          type="button"
+        />
+      )}
+
+      <section
+        aria-hidden={!attackPathDrawerOpen}
+        aria-label="Interactive attack path"
+        className={`attack-path-drawer ${attackPathDrawerOpen ? 'open' : ''}`}
+      >
+        {attackPathDrawerOpen && (
+          <>
+            <div className="attack-path-drawer-header">
+              <div>
+                <p>INTERACTIVE ATTACK PATH</p>
+                <h2>
+                  {pathDirection === 'reverse'
+                    ? 'Reverse path · find the attack source'
+                    : `${selectedIdentity?.name ?? 'Identity'} → high-value resource`}
+                </h2>
+              </div>
+              <div className="attack-path-drawer-actions">
+                <div className="path-direction-toggle" aria-label="Attack path direction">
+                  <button
+                    type="button"
+                    className={pathDirection === 'forward' ? 'active' : ''}
+                    onClick={() => setPathDirection('forward')}
+                  >
+                    Forward
+                  </button>
+                  <button
+                    type="button"
+                    className={pathDirection === 'reverse' ? 'active' : ''}
+                    onClick={() => setPathDirection('reverse')}
+                  >
+                    Reverse source
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close attack path"
+                  className="attack-path-drawer-close"
+                  onClick={() => setAttackPathDrawerOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <AttackPathGraph
+              key={`drawer-${pathDirection}-${selectedIdentity?.id ?? 'none'}`}
+              direction={pathDirection}
+              paths={attackPathGraphPaths}
+              selectedNode={selectedNode}
+              onSelectNode={setSelectedNode}
+            />
+            <div className="path-insight">
+              <Zap size={17} />
+              <span>
+                {pathDirection === 'reverse'
+                  ? `Working backward from ${
+                      selectedAccessPath.at(-1) ?? selectedNode ?? 'the compromised asset'
+                    } to locate the originating identity and privilege hops.`
+                  : `${selectedNode ?? selectedAccessPath[0] ?? 'Selected node'} is part of an effective-access path contributing to ${
+                      selectedAccess?.conflicts[0]?.title ?? 'this investigation'
+                    }.`}
+              </span>
+            </div>
+          </>
+        )}
+      </section>
 
       <section
         aria-hidden={!selectedConnector}
