@@ -6,6 +6,7 @@ import {
   Bot,
   Boxes,
   Check,
+  ChevronLeft,
   ChevronRight,
   Cloud,
   Database,
@@ -604,6 +605,8 @@ const workspaceCopy: Record<
   },
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function DashboardClient() {
   const [summary, setSummary] = useState<RiskSummary | null>(null);
   const [accessEvaluations, setAccessEvaluations] = useState<ToxicAccessEvaluation[]>([]);
@@ -631,6 +634,8 @@ export default function DashboardClient() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [ruleFilter, setRuleFilter] = useState<string | null>(null);
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('all');
+  const [identitiesPage, setIdentitiesPage] = useState(1);
+  const [findingsPage, setFindingsPage] = useState(1);
   const [connectorPlatform, setConnectorPlatform] = useState<string | null>(null);
   const [connectorOnboardingStarted, setConnectorOnboardingStarted] = useState(false);
   const [connectorValidationRequested, setConnectorValidationRequested] = useState(false);
@@ -828,6 +833,14 @@ export default function DashboardClient() {
     return () => window.removeEventListener('popstate', syncViewFromLocation);
   }, []);
 
+  useEffect(() => {
+    setIdentitiesPage(1);
+  }, [identityTypeFilter, categoryFilter, activeView]);
+
+  useEffect(() => {
+    setFindingsPage(1);
+  }, [selectedId, severity, categoryFilter, ruleFilter]);
+
   const displayIdentities = useMemo<ToxicIdentity[]>(() => {
     const seededById = new Map(summary?.topIdentities.map((identity) => [identity.id, identity]));
     const connected = accessEvaluations.map((evaluation) => {
@@ -884,6 +897,17 @@ export default function DashboardClient() {
       ) ?? [],
     [categoryFilter, ruleFilter, selectedAccess, severity],
   );
+
+  const findingsTotalPages = useMemo(
+    () => Math.ceil(filteredConflicts.length / ITEMS_PER_PAGE),
+    [filteredConflicts.length],
+  );
+
+  const paginatedFindings = useMemo(() => {
+    const startIndex = (findingsPage - 1) * ITEMS_PER_PAGE;
+    return filteredConflicts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredConflicts, findingsPage]);
+
   const removablePermissions = useMemo(
     () =>
       [
@@ -1073,6 +1097,29 @@ export default function DashboardClient() {
       ),
     [accessEvaluations, identityTypeFilter],
   );
+
+  const filteredIdentitiesList = useMemo(() => {
+    return displayIdentities.filter((identity) =>
+      visibleIdentities.some(
+        ({ identityId, conflicts }) =>
+          identityId === identity.id &&
+          (activeView !== 'conflicts' ||
+            categoryFilter === 'all' ||
+            conflicts.some(({ category }) => category === categoryFilter)),
+      ),
+    );
+  }, [displayIdentities, visibleIdentities, activeView, categoryFilter]);
+
+  const identitiesTotalPages = useMemo(
+    () => Math.ceil(filteredIdentitiesList.length / ITEMS_PER_PAGE),
+    [filteredIdentitiesList.length],
+  );
+
+  const paginatedIdentities = useMemo(() => {
+    const startIndex = (identitiesPage - 1) * ITEMS_PER_PAGE;
+    return filteredIdentitiesList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredIdentitiesList, identitiesPage]);
+
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
@@ -1109,49 +1156,95 @@ export default function DashboardClient() {
       })
       .slice(0, 8);
   }, [accessEvaluations, searchQuery]);
-  const platformConflictCounts = Array.from(
-    new Set([
-      ...Object.keys(connectorGuides),
-      ...accessEvaluations
-        .flatMap((evaluation) => evaluation.summary.affectedPlatforms)
-        .map((platform) => platform.toUpperCase()),
-    ]),
-  )
-    .map((platform) => ({
-      platform,
-      conflicts: accessEvaluations.reduce(
-        (total, evaluation) =>
-          total +
-          evaluation.conflicts.filter((conflict) =>
-            conflict.platforms.some((item) => item.toUpperCase() === platform),
+  const platformConflictCounts = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...Object.keys(connectorGuides),
+          ...accessEvaluations
+            .flatMap((evaluation) => evaluation.summary.affectedPlatforms)
+            .map((platform) => platform.toUpperCase()),
+        ]),
+      )
+        .map((platform) => ({
+          platform,
+          conflicts: accessEvaluations.reduce(
+            (total, evaluation) =>
+              total +
+              evaluation.conflicts.filter((conflict) =>
+                conflict.platforms.some((item) => item.toUpperCase() === platform),
+              ).length,
+            0,
+          ),
+          identities: accessEvaluations.filter((evaluation) =>
+            evaluation.summary.affectedPlatforms.some((item) => item.toUpperCase() === platform),
           ).length,
-        0,
-      ),
-      identities: accessEvaluations.filter((evaluation) =>
-        evaluation.summary.affectedPlatforms.some((item) => item.toUpperCase() === platform),
-      ).length,
-    }))
-    .sort((left, right) => right.conflicts - left.conflicts);
-  const coveragePlatforms = (() => {
-    const withConflicts = platformConflictCounts.filter(
-      (item) => item.platform !== 'JENKINS',
-    );
+        }))
+        .sort((left, right) => right.conflicts - left.conflicts),
+    [accessEvaluations],
+  );
+  const coveragePlatforms = useMemo(() => {
+    const withConflicts = platformConflictCounts.filter((item) => item.platform !== 'JENKINS');
     const jenkins = platformConflictCounts.find((item) => item.platform === 'JENKINS') ?? {
       platform: 'JENKINS',
       identities: 0,
     };
-    return [
-      ...withConflicts.slice(0, 6),
-      { ...jenkins, conflicts: 0 },
-    ];
-  })();
-  const flowConnectorLines = coveragePlatforms
-    .map((item, index) => ({ ...item, index }))
-    .filter((item) => item.conflicts > 0)
-    .map((item) => ({
-      platform: item.platform,
-      sourceY: ((item.index + 0.5) / coveragePlatforms.length) * 160,
-    }));
+    return [...withConflicts.slice(0, 6), { ...jenkins, conflicts: 0 }];
+  }, [platformConflictCounts]);
+  const flowPlatforms = useMemo(
+    () => coveragePlatforms.filter((item) => item.conflicts > 0).map((item) => item.platform),
+    [coveragePlatforms],
+  );
+
+  const pidSectionRef = useRef<HTMLElement | null>(null);
+  const pidOrbRef = useRef<HTMLButtonElement | null>(null);
+  const pidCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [flowGeometry, setFlowGeometry] = useState<{
+    viewBox: string;
+    ribbons: { platform: string; d: string; pathId: string }[];
+  }>({ viewBox: '0 0 0 0', ribbons: [] });
+
+  useEffect(() => {
+    if (activeView !== 'overview') return;
+    const section = pidSectionRef.current;
+    const orb = pidOrbRef.current;
+    if (!section || !orb) return;
+
+    const compute = () => {
+      const s = section.getBoundingClientRect();
+      const o = orb.getBoundingClientRect();
+      if (s.width === 0) return;
+      // Converge just left of the conflicts circle (not its centre) at its vertical midpoint.
+      const endX = o.left - s.left - 4;
+      const endY = o.top - s.top + o.height / 2;
+      const ribbons = flowPlatforms
+        .map((platform) => {
+          const card = pidCardRefs.current[platform];
+          if (!card) return null;
+          const c = card.getBoundingClientRect();
+          // Start from the centre (right edge) of each platform card.
+          const startX = c.right - s.left;
+          const startY = c.top - s.top + c.height / 2;
+          const dx = endX - startX;
+          const c1x = startX + dx * 0.5;
+          const c2x = startX + dx * 0.85;
+          const d = `M${startX},${startY} C${c1x},${startY} ${c2x},${endY} ${endX},${endY}`;
+          return { platform, d, pathId: `pid-ribbon-${platform.toLowerCase()}` };
+        })
+        .filter((item): item is { platform: string; d: string; pathId: string } => item !== null);
+      setFlowGeometry({ viewBox: `0 0 ${s.width} ${s.height}`, ribbons });
+    };
+
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(section);
+    window.addEventListener('resize', compute);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', compute);
+    };
+  }, [activeView, flowPlatforms, coverage, summary]);
+
   const connectorCoverageItems = Object.keys(connectorGuides).map((platform, index) => {
     const live = coverage?.connectors.find(
       (connector) => connector.platform.toUpperCase() === platform,
@@ -1416,37 +1509,61 @@ export default function DashboardClient() {
               {activeView === 'overview' && (
                 <>
                   <section
+                    ref={pidSectionRef}
                     className={`pid-intelligence ${refreshing ? 'is-refreshing' : ''}`}
                     aria-label="Privilege Intelligence and Detection"
                   >
                     <div className="pid-flow-connectors" aria-hidden>
-                      <svg viewBox="0 0 220 160" preserveAspectRatio="none">
+                      <svg viewBox={flowGeometry.viewBox} preserveAspectRatio="none">
                         <defs>
-                          <linearGradient id="pidFlowStroke" x1="0" y1="0" x2="1" y2="0">
+                          <linearGradient id="pidRibbonStroke" x1="0" y1="0" x2="1" y2="0">
                             <stop offset="0%" stopColor="#2f61ed" stopOpacity="0" />
-                            <stop offset="45%" stopColor="#2f61ed" stopOpacity="0.55" />
-                            <stop offset="100%" stopColor="#80d568" stopOpacity="0.85" />
+                            <stop offset="30%" stopColor="#3f78ff" stopOpacity="0.28" />
+                            <stop offset="75%" stopColor="#5aa0ff" stopOpacity="0.42" />
+                            <stop offset="100%" stopColor="#7cc0ff" stopOpacity="0.55" />
                           </linearGradient>
-                          <marker
-                            id="pidFlowArrow"
-                            markerWidth="7"
-                            markerHeight="7"
-                            refX="5"
-                            refY="3"
-                            orient="auto"
-                          >
-                            <path d="M0,0 L6,3 L0,6 Z" fill="#5a8f4f" />
-                          </marker>
+                          <linearGradient id="pidRibbonShimmer" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#bcd6ff" stopOpacity="0" />
+                            <stop offset="50%" stopColor="#eaf2ff" stopOpacity="0.9" />
+                            <stop offset="100%" stopColor="#bcd6ff" stopOpacity="0" />
+                          </linearGradient>
+                          <radialGradient id="pidParticleGlow">
+                            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                            <stop offset="35%" stopColor="#d7e6ff" stopOpacity="0.95" />
+                            <stop offset="100%" stopColor="#3f78ff" stopOpacity="0" />
+                          </radialGradient>
                         </defs>
-                        {flowConnectorLines.map((line, index) => (
-                          <path
-                            key={line.platform}
-                            className="pid-flow-line"
-                            style={{ animationDelay: `${index * 0.3}s` }}
-                            d={`M4,${line.sourceY} C90,${line.sourceY} 130,80 214,80`}
-                            markerEnd="url(#pidFlowArrow)"
-                          />
-                        ))}
+                        {flowGeometry.ribbons.map((ribbon, index) => {
+                          const duration = 3 + index * 0.3;
+                          return (
+                            <g key={ribbon.platform}>
+                              <path id={ribbon.pathId} className="pid-ribbon" d={ribbon.d} />
+                              <path
+                                className="pid-ribbon-shimmer"
+                                d={ribbon.d}
+                                style={{ animationDelay: `${index * 0.4}s` }}
+                              />
+                              <circle className="pid-particle" r={4} fill="url(#pidParticleGlow)">
+                                <animateMotion
+                                  dur={`${duration}s`}
+                                  begin={`${index * 0.4}s`}
+                                  repeatCount="indefinite"
+                                >
+                                  <mpath href={`#${ribbon.pathId}`} />
+                                </animateMotion>
+                              </circle>
+                              <circle className="pid-particle" r={3} fill="url(#pidParticleGlow)">
+                                <animateMotion
+                                  dur={`${duration}s`}
+                                  begin={`${index * 0.4 + duration / 2}s`}
+                                  repeatCount="indefinite"
+                                >
+                                  <mpath href={`#${ribbon.pathId}`} />
+                                </animateMotion>
+                              </circle>
+                            </g>
+                          );
+                        })}
                       </svg>
                     </div>
                     <div className="pid-integrations">
@@ -1462,6 +1579,9 @@ export default function DashboardClient() {
                             return (
                               <button
                                 key={platform}
+                                ref={(el) => {
+                                  pidCardRefs.current[platform] = el;
+                                }}
                                 className={`pid-integration-card ${conflicts > 0 ? 'has-risk' : ''}`}
                                 onClick={() => {
                                   setConnectorPlatform(platform);
@@ -1493,6 +1613,7 @@ export default function DashboardClient() {
                     <div className="pid-orb-panel">
                       <h3>Privilege Intelligence &amp; Detection</h3>
                       <button
+                        ref={pidOrbRef}
                         type="button"
                         className="pid-orb"
                         aria-label={`${totalConflicts} toxic conflicts — investigate findings`}
@@ -1735,17 +1856,8 @@ export default function DashboardClient() {
                       </button>
                     ))}
                   </div>
-                  {displayIdentities
-                    .filter((identity) =>
-                      visibleIdentities.some(
-                        ({ identityId, conflicts }) =>
-                          identityId === identity.id &&
-                          (activeView !== 'conflicts' ||
-                            categoryFilter === 'all' ||
-                            conflicts.some(({ category }) => category === categoryFilter)),
-                      ),
-                    )
-                    .map((identity) => (
+                  <div className="identity-scroll">
+                    {paginatedIdentities.map((identity) => (
                       <button
                         className={`identity ${identity.id === selectedIdentity.id ? 'selected' : ''}`}
                         key={identity.id}
@@ -1770,6 +1882,29 @@ export default function DashboardClient() {
                         <ChevronRight size={16} />
                       </button>
                     ))}
+                  </div>
+                  {identitiesTotalPages > 1 && (
+                    <div className="pagination">
+                      <button
+                        disabled={identitiesPage === 1}
+                        onClick={() => setIdentitiesPage((p) => Math.max(1, p - 1))}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="pagination-info">
+                        Page {identitiesPage} of {identitiesTotalPages}
+                        <small>{filteredIdentitiesList.length} identities</small>
+                      </span>
+                      <button
+                        disabled={identitiesPage === identitiesTotalPages}
+                        onClick={() => setIdentitiesPage((p) => Math.min(identitiesTotalPages, p + 1))}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
                 </article>
 
                 <article className="panel identity-detail" id="findings">
@@ -1784,21 +1919,22 @@ export default function DashboardClient() {
                         {selectedIdentity.department} · {selectedIdentity.platforms.join(' · ')}
                       </span>
                     </div>
-                    <div className="score hero-score">
-                      {selectedAccess?.summary.total ?? 0}
-                      <small>CONFLICTS</small>
+                    <div className="detail-heading-actions">
+                      <div className="score hero-score">
+                        {selectedAccess?.summary.total ?? 0}
+                        <small>CONFLICTS</small>
+                      </div>
+                      {activeView === 'identities' && (
+                        <button
+                          type="button"
+                          className="attack-path-trigger"
+                          onClick={() => setAttackPathDrawerOpen(true)}
+                        >
+                          <Workflow size={16} /> View attack path
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  {activeView === 'identities' && (
-                    <button
-                      type="button"
-                      className="attack-path-trigger"
-                      onClick={() => setAttackPathDrawerOpen(true)}
-                    >
-                      <Workflow size={16} /> View attack path
-                    </button>
-                  )}
 
                   {selectedAccess && selectedAccess.identityType !== 'HUMAN' && (
                     <div className="nhi-context">
@@ -1897,7 +2033,7 @@ export default function DashboardClient() {
                   </div>
 
                   <div className="finding-list">
-                    {filteredConflicts.map((conflict) => (
+                    {paginatedFindings.map((conflict) => (
                       <button
                         className="finding"
                         key={conflict.ruleId}
@@ -1905,9 +2041,9 @@ export default function DashboardClient() {
                           // Prefer the path start so the blue flow paints identity → resource.
                           const path = conflict.evidence[0]?.accessPath.filter(Boolean) ?? [];
                           setSelectedNode(path[0] ?? path.at(-1) ?? null);
-                          if (activeView === 'identities') {
-                            setAttackPathDrawerOpen(true);
-                          } else {
+                          // In the identities view the attack path only opens via the
+                          // explicit "View attack path" button, not by selecting a finding.
+                          if (activeView !== 'identities') {
                             selectWorkspaceView('attack-paths');
                           }
                         }}
@@ -1933,6 +2069,28 @@ export default function DashboardClient() {
                       </div>
                     )}
                   </div>
+                  {findingsTotalPages > 1 && (
+                    <div className="pagination">
+                      <button
+                        disabled={findingsPage === 1}
+                        onClick={() => setFindingsPage((p) => Math.max(1, p - 1))}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="pagination-info">
+                        Page {findingsPage} of {findingsTotalPages}
+                        <small>{filteredConflicts.length} findings</small>
+                      </span>
+                      <button
+                        disabled={findingsPage === findingsTotalPages}
+                        onClick={() => setFindingsPage((p) => Math.min(findingsTotalPages, p + 1))}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
                 </article>
 
                 <article className="panel path" id="attack-path">
